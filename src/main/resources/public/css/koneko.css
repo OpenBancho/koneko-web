@@ -2298,6 +2298,60 @@ body {
 
 /* --- One score in full --------------------------------------------------- */
 
+/* A row that is a score: the whole thing opens the play, so it says so with the
+   pointer instead of relying on the small permalink being noticed. */
+.score-clickable {
+    cursor: pointer;
+}
+
+.table tbody tr.score-clickable:hover td {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* The arrow at the end of a leaderboard row. Quiet until the row is hovered,
+   the way a chevron in a list behaves. */
+.score-open {
+    width: 1px;
+    text-align: right;
+}
+
+.score-open a {
+    color: var(--muted);
+    font-size: 1.2rem;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.score-clickable:hover .score-open a {
+    color: var(--accent);
+}
+
+/* Whose play it is, under the map title on the score page. */
+.score-player {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 0;
+    font-weight: 600;
+}
+
+.score-player a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.score-player a:hover {
+    color: var(--accent);
+}
+
+/* The place the play holds on the map's board. */
+.badge-rank {
+    border-color: rgba(102, 204, 255, 0.45);
+    background: rgba(102, 204, 255, 0.12);
+    color: #a8dcff;
+    font-variant-numeric: tabular-nums;
+}
+
 .score-permalink {
     font-size: 0.75rem;
     color: var(--muted);
@@ -2308,52 +2362,351 @@ body {
     color: var(--accent);
 }
 
-.score-hero-map {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.score-hero-cover {
-    width: 150px;
-    height: 70px;
+/*
+ * The score panel.
+ *
+ * One panel in three strips, the way the game's own score page is built: the
+ * map across the top, the play itself standing on the cover of the set, and the
+ * player with the numbers along the bottom. It is one panel and not three cards
+ * because all of it describes a single play.
+ */
+.score-panel {
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    object-fit: cover;
-    flex: none;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-panel);
+    overflow: hidden;
+    margin-bottom: 18px;
 }
 
-.score-hero-text {
-    flex: 1;
-    min-width: 0;
+.score-panel-head {
+    padding: 18px 24px 16px;
 }
 
-.score-hero-text h2 {
-    margin: 0 0 4px;
+.score-map-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 300;
+    letter-spacing: 0.01em;
 }
 
-.score-hero-text a {
+.score-map-title a {
     color: inherit;
     text-decoration: none;
 }
 
-.score-hero-text a:hover {
+.score-map-title a:hover {
     color: var(--accent);
 }
 
-.score-hero-tags {
+.score-map-title .muted {
+    font-size: 1.1rem;
+}
+
+.score-map-sub {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0 0;
+    font-size: 0.9rem;
+}
+
+/* The mode, as the small lettered disc the client puts in front of a
+   difficulty name. */
+.score-mode-orb {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: 2px solid var(--muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: lowercase;
+    color: var(--text);
+}
+
+.score-version {
+    font-weight: 600;
+}
+
+/* ----- the banner: the play on the cover of the set ----- */
+
+.score-banner {
+    position: relative;
+    overflow: hidden;
+    min-height: 260px;
+}
+
+.score-banner-cover {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.5;
+}
+
+/* The scrim. The numbers on top of a busy background are the whole point of the
+   panel, so the cover is dimmed rather than the text being outlined. */
+.score-banner::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(14, 14, 16, 0.62), rgba(14, 14, 16, 0.9));
+}
+
+.score-banner-inner {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: stretch;
+    gap: 20px;
+    padding: 20px 24px;
+}
+
+/* The grades in a column, dim except the one that was earned: a grade only
+   means something next to the ones the play did not get. */
+.grade-ladder {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: none;
+}
+
+.grade-step {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 22px;
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.35);
+    font-size: 0.78rem;
+    font-weight: 700;
+    opacity: 0.28;
+}
+
+.grade-step.active {
+    opacity: 1;
+    box-shadow: 0 0 0 1px currentColor inset;
+}
+
+.score-banner-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.score-mod-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin: 8px 0 0;
 }
 
-.score-hero-grade {
+.mod-chip {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.score-banner-row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+/* The grade, at the size the game prints it: the first thing the eye lands on. */
+.score-grade-huge {
     flex: none;
-    font-size: 2.2rem;
+    font-size: 5.5rem;
+    font-weight: 700;
+    line-height: 0.9;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+}
+
+.score-total-block {
+    flex: none;
+}
+
+.score-total {
+    font-size: 3.4rem;
+    font-weight: 300;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+/* Player, time, mode, status: a label column and a value column, so the four
+   read as one block instead of a sentence. */
+.score-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    font-size: 0.88rem;
+}
+
+.score-fact {
+    display: flex;
+    gap: 12px;
+}
+
+/* The labels share a width so the values line up as a column, which is what
+   makes the block read as a table without being one. */
+.score-fact dt {
+    flex: none;
+    width: 74px;
+    color: var(--muted);
+}
+
+.score-fact dd {
+    margin: 0;
+    font-weight: 600;
+}
+
+.score-banner-foot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: auto;
+}
+
+.world-ranking {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.world-ranking-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+
+.world-ranking-value {
+    font-size: 1.6rem;
     font-weight: 700;
     line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
+
+/* ----- the bottom strip: who set it, and what it scored ----- */
+
+.score-panel-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 16px 24px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-alt);
+}
+
+.score-player-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px 10px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-soft);
+    color: inherit;
+    text-decoration: none;
+    min-width: 240px;
+}
+
+.score-player-card:hover {
+    border-color: var(--accent);
+    text-decoration: none;
+}
+
+.score-player-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: var(--radius-md);
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.score-player-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.score-player-name {
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.score-player-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.score-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.metric-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* One number under its label. The label is a chip rather than a line of text so
+   a row of them reads as a scoreboard, which is what it is. */
+.metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 84px;
+}
+
+.metric-label {
+    width: 100%;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-soft);
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: center;
+    color: var(--muted);
+}
+
+.metric-value {
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The judgement colours of the client, so a row of counts is read by colour
+   before it is read by label. */
+.judgement.j-300 .metric-label { color: #66ccff; }
+.judgement.j-geki .metric-label { color: #99e5ff; }
+.judgement.j-100 .metric-label { color: #88e57e; }
+.judgement.j-katu .metric-label { color: #b6f0ac; }
+.judgement.j-50 .metric-label { color: #f5d47a; }
+.judgement.j-miss .metric-label { color: #ff7a8a; }
 
 .score-figures {
     display: grid;
@@ -2758,14 +3111,32 @@ body {
         margin-left: 0;
     }
 
-    .score-hero-map,
     .settings-head {
         flex-wrap: wrap;
     }
 
-    .score-hero-cover {
+    /* The banner becomes one column: the grade ladder lies down above the play
+       rather than squeezing the score into a corner. */
+    .score-banner-inner {
+        flex-direction: column;
+        padding: 16px;
+    }
+
+    .grade-ladder {
+        flex-direction: row;
+    }
+
+    .score-grade-huge {
+        font-size: 4rem;
+    }
+
+    .score-total {
+        font-size: 2.4rem;
+    }
+
+    .score-metrics {
+        align-items: flex-start;
         width: 100%;
-        height: 110px;
     }
 }
 

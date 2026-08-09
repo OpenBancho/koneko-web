@@ -1,5 +1,9 @@
 <template id="score-row">
-    <div class="score-row">
+    <!-- The whole row opens the play. The map title and the permalink inside it
+         stay real links, so the pointer still lands where it is aimed and a
+         middle click still opens a tab. -->
+    <div class="score-row score-clickable" :title="score.id ? 'Open this score' : null"
+        @click="open($event)">
         <!-- Set banner. Sets uploaded here have none on osu!'s CDN, in which
              case the image simply never loads and the row keeps its plain
              background. -->
@@ -27,8 +31,6 @@
         </div>
 
         <div class="score-numbers">
-            <!-- The whole row is not a link, because the map title inside it
-                 already is one; this keeps the play itself reachable. -->
             <a class="score-permalink" v-if="score.id" :href="'/scores/' + score.id"
                 title="Score details">details</a>
 
@@ -48,6 +50,22 @@
             score: { type: Object, required: true },
             // Position in the best-scores list, used for the pp weighting.
             index: { default: null }
+        },
+        methods: {
+            /**
+             * Opens this score.
+             *
+             * Clicks that landed on a link are left alone: the map title means
+             * the beatmap, and the permalink already goes here by itself. So are
+             * modified clicks, which are how a play is opened in a new tab.
+             */
+            open(event) {
+                if (!this.score.id) return;
+                if (event.target.closest("a")) return;
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+
+                window.location.href = "/scores/" + this.score.id;
+            }
         },
         computed: {
             coverStyle() {

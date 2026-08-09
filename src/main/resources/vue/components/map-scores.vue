@@ -44,13 +44,24 @@
                     <th>Mods</th>
                     <th class="numeric">pp</th>
                     <th>When</th>
+                    <!-- The arrow column: the row is clickable, and an empty
+                         header would not say so. -->
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 <!-- The reader's own score is highlighted, the way the in-game
-                     leaderboard does it. -->
+                     leaderboard does it.
+
+                     The whole row opens the play: a row is a score, so clicking
+                     it goes to the score. The player name inside it keeps
+                     leading to the profile, which is why the handler ignores
+                     clicks that landed on a link. -->
                 <tr v-for="(score, index) in rows" :key="score.id"
-                    :class="{ 'score-mine': isMine(score) }">
+                    class="score-clickable"
+                    :class="{ 'score-mine': isMine(score) }"
+                    :title="score.id ? 'Open this score' : null"
+                    @click="open(score, $event)">
                     <td class="score-place">{{ index + 1 }}</td>
                     <td>
                         <span class="country-tag" v-if="flagClass(country(score))"
@@ -72,6 +83,10 @@
                     </td>
                     <td class="numeric">{{ fmtDecimal(score.pp, 0) }}</td>
                     <td class="muted">{{ fmtRelative(score.play_time) }}</td>
+                    <td class="score-open">
+                        <a v-if="score.id" :href="'/scores/' + score.id"
+                            title="Score details">&rsaquo;</a>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -200,6 +215,20 @@
             },
             gradeClass(score) {
                 return String(score.grade || "f").toLowerCase().replace("+", "plus");
+            },
+            /**
+             * Opens the score behind a row.
+             *
+             * A click that landed on a link is left alone - that is the profile
+             * link, and it means the profile. A modified click is left alone as
+             * well, so opening a play in a new tab keeps working.
+             */
+            open(score, event) {
+                if (!score || !score.id) return;
+                if (event.target.closest("a")) return;
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+
+                window.location.href = "/scores/" + score.id;
             },
             isMine(score) {
                 const user = this.$koneko.user;
