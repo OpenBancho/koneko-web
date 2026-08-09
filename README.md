@@ -1,6 +1,6 @@
 # koneko-web
 
-The web frontend for a [bancho.jar](https://github.com/status223456/bancho.jar)
+The web frontend for a [bancho.jar](https://github.com/openbancho/bancho.jar)
 server: Java 25, Gradle, Javalin 7 and Vue 3.
 
 Pages are assembled the way the JavalinVue plugin used to do it - one HTML
@@ -11,14 +11,79 @@ This project renders pages and talks to the bancho.jar public API. It has no
 database and no Redis of its own: every piece of data comes from
 `https://api.<domain>/api/v1/...`.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="https://i.ibb.co/kRf2SXJ/image.png" width="440" alt="The front page: hero band, server numbers, new players and the best plays">
+      <br><sub><b>Front page</b></sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="https://i.ibb.co/6cq4ppRv/photo-2026-08-09-17-42-49.jpg" width="440" alt="A player profile: ranks, the graph, the medals and the score lists">
+      <br><sub><b>Profile</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="https://i.ibb.co/PszCKFSx/image.png" width="440" alt="The beatmap listing: search panel, filters and the set cards">
+      <br><sub><b>Beatmaps</b></sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="https://i.ibb.co/tPX9hs4v/image.png" width="440" alt="The staff panel overview: server state and the moderation sections">
+      <br><sub><b>Staff panel</b></sub>
+    </td>
+  </tr>
+</table>
+
+## Why this frontend
+
+- **Nothing of its own to run.** No database, no Redis, no migrations, no cron.
+  One jar next to bancho.jar, and every number on every page comes from the
+  public API - so the site can never disagree with the server about a score.
+- **The API token never reaches the browser.** Logging in is a
+  backend-for-frontend flow: the token pair lives in memory on this side and the
+  browser holds an opaque `HttpOnly` cookie. An XSS here cannot walk away with an
+  API token. See [How the login works](#how-the-login-works).
+- **Pages that look like the game.** The leaderboard, the beatmap page and the
+  score page follow the layouts osu! itself uses - star colours from song select,
+  the grade and the total on the cover of the set, the judgements in the client's
+  own colours - so nothing has to be re-learned to be read.
+- **Every score is a page you can link to.** A row on a leaderboard or a profile
+  is a link to `/scores/{id}`, with the judgements, the world rank, the mods and
+  the replay download in one place.
+- **A plugin host, not a fork target.** `.jar` plugins add nav entries, footer
+  links, whole pages and components in named slots, and may hide core entries by
+  id. Adding a feature does not mean maintaining a diff against this repo.
+- **A staff panel that is gated twice.** The panel routes check staff rights
+  before anything is served, and the API checks again on every call. The
+  profile-reading endpoints go through a server-side allowlist rather than a
+  blanket proxy.
+- **One theme, not eleven.** Three corner radii, one accent colour, neutral
+  surfaces, `prefers-reduced-motion` respected, skeletons instead of spinners,
+  and a layout that folds to one column on a phone.
+- **FastLoad.** A page paints from the last answer it cached and replaces it when
+  the fresh one arrives, so moving between profiles does not flash empty cards.
+- **No build step for the frontend.** No npm, no bundler, no lockfile. Vue is
+  pinned in `layout.html`, and in `LEVEL=DEV` the `.vue` files are re-read per
+  request - a browser refresh is the whole edit loop.
+
 ## What is implemented
 
 | Page | Route | Data |
 | --- | --- | --- |
-| Front page | `/` | `get_server_stats`, `get_leaderboard` |
-| Login | `/login` | `oauth/token` (password grant) |
-| Profile | `/u/{id or name}` | `get_player_details`, `get_player_scores`, `get_player_beatmapsets`, `get_player_most_played` |
+| Front page | `/` | `get_server_stats`, `get_recent_players`, `get_top_scores` |
+| Leaderboard | `/leaderboard` | `get_leaderboard`, `get_countries` |
+| Beatmap listing | `/beatmaps` | `search_beatmapsets` |
+| Beatmap | `/beatmapsets/{setId}` | `get_beatmapset`, `get_map_scores` |
+| Score | `/scores/{scoreId}` | `get_score_details`, `get_replay` |
+| Profile | `/u/{id or name}` | `get_player_details`, `get_player_scores`, `get_player_beatmapsets`, `get_player_most_played`, through `/data/player/*` |
 | Own profile | `/me` | redirects to `/u/<your id>` |
+| Login | `/login` | `POST /auth/login` here, then `oauth/token` (password grant) |
+| Sign up | `/register` | `POST /auth/register` here |
+| Settings | `/settings` | `/account/*` here: avatar, banner, badge icon, 2FA |
+| Restrictions | `/restrictions` | `/data/docs/restrictions` |
+| Staff panel | `/admin/...` | `/admin/api/*`, staff only |
 
 ## First clone
 
@@ -47,21 +112,6 @@ plugin host layout - is a fixed constant in the code, so there is nothing to
 set up for it.
 
 ## Running
-
-On Windows, double click or run from a terminal:
-
-| Script | What it does |
-| --- | --- |
-| `build.bat` | `gradlew shadowJar` - produces `build\libs\koneko-web-shaded.jar` |
-| `run.bat` | creates `.env` and `.config/config.yml` if missing, builds if needed, then starts the jar |
-| `dev.bat` | `gradlew run`, for development against the sources |
-| `clean.bat` | `gradlew clean` |
-
-On Linux and macOS the same four commands are `make build`, `make run`,
-`make dev` and `make clean`.
-
-By hand:
-
 ```
 cp .env.example .env
 cp .config/config.example.yml .config/config.yml
@@ -119,7 +169,8 @@ src/main/java/com/osuserverlist/koneko/
   config/               .env and .config/config.yml loading
   api/                  HTTP client for the bancho.jar API
   auth/                 server side sessions and token refresh
-  routes/               page routes, /auth/*, /data/*
+  plugin/               the plugin host: slots, pages, nav contributions
+  routes/               page routes, /auth/*, /data/*, /admin/*
   vue/                  the KonekoVue state function
 src/main/resources/
   vue/layout.html       the single HTML layout KonekoVue serves
@@ -127,10 +178,3 @@ src/main/resources/
   vue/views/*.vue       one file per route
   public/css/koneko.css styling
 ```
-
-## Notes
-
-- Nothing here is compiled yet in CI; run `build.bat` (or `./gradlew
-  shadowJar`) once before deploying.
-- The Vue version is pinned in `layout.html`. Vue 3 is used with the
-  `vueAppName` option, which is what KonekoVue expects for Vue 3.
