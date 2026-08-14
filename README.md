@@ -1,3 +1,10 @@
+> [!WARNING]  
+> At the moment the server is not recommended to use in production
+
+>Not affiliated with osu! or ppy Pty Ltd.
+>All rights belong to their respective owners. 
+
+
 # koneko-web
 
 The web frontend for a [bancho.jar](https://github.com/openbancho/bancho.jar)
