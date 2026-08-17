@@ -35,6 +35,13 @@
                             supporter until {{ fmtDate(player.donor_end * 1000) }}
                         </span>
                         <span class="admin-badge" v-for="role in player.roles" :key="role">{{ role }}</span>
+
+                        <!-- The groups the account carries, in their own colours. -->
+                        <span class="group-badge" v-for="group in groups" :key="group.id"
+                            :style="groupStyle(group)" :title="group.name">
+                            <span v-if="group.icon">{{ group.icon }}</span>
+                            <span>{{ group.name }}</span>
+                        </span>
                     </p>
 
                     <p>
@@ -88,6 +95,10 @@
 
                     <button class="button button-small" v-if="can('privileges')"
                         @click="act('privileges-remove')">Remove privilege</button>
+
+                    <button class="button button-small" v-if="can('groups')" @click="act('groups')">
+                        Groups
+                    </button>
 
                     <button class="button button-small button-danger" v-if="can('wipe')"
                         @click="act('wipe')">Wipe</button>
@@ -220,6 +231,10 @@
             logs: [],
             logCount: 0,
             stats: [],
+            // The account's current groups, and every group that exists. The
+            // second list is only fetched when the caller may change membership.
+            groups: [],
+            allGroups: [],
             dialog: null,
             dialogBusy: false,
             dialogError: "",
@@ -252,9 +267,22 @@
                     this.logs = (answer && answer.logs) || [];
                     this.logCount = (answer && answer.log_count) || 0;
                     this.stats = (answer && answer.stats) || [];
+                    this.groups = (answer && answer.groups) || [];
                     this.error = "";
 
                     this.setTitle(this.player.name || "Player");
+
+                    // The groups dialog needs every group that exists, not only
+                    // the account's own. Fetched with the page rather than on
+                    // click, so the dialog opens instantly.
+                    if (this.can("groups")) {
+                        try {
+                            const groupsAnswer = await this.session("GET", "/admin/api/groups");
+                            this.allGroups = (groupsAnswer && groupsAnswer.groups) || [];
+                        } catch (e) {
+                            this.allGroups = [];
+                        }
+                    }
                 } catch (e) {
                     this.error = e.message || "That account could not be loaded.";
                 } finally {
@@ -428,6 +456,24 @@
                     };
                 }
 
+                if (action === "groups") {
+                    return {
+                        title: "Groups of " + who,
+                        text: "Tick every group the account belongs to. The rest is removed.",
+                        confirm: "Save groups",
+                        fields: [{
+                            key: "groups",
+                            label: "Groups",
+                            type: "checks",
+                            options: this.allGroups.map(group => ({
+                                value: group.id,
+                                label: (group.icon ? group.icon + " " : "") + group.name
+                            })),
+                            value: this.groups.map(group => group.id)
+                        }]
+                    };
+                }
+
                 if (action === "wipe") {
                     return {
                         title: "Wipe " + who,
@@ -486,7 +532,16 @@
 
                 try {
                     const action = this.dialog.action;
-                    const answer = await this.session("POST", "/admin/api/" + action, body);
+
+                    // Membership is a set: it goes to its own endpoint as one
+                    // call rather than one per checkbox.
+                    const answer = action === "groups"
+                        ? await this.session("POST", "/admin/api/group-members", {
+                            action: "set",
+                            user_id: this.userId,
+                            group_ids: (body.groups || []).map(Number)
+                        })
+                        : await this.session("POST", "/admin/api/" + action, body);
 
                     this.dialog = null;
 

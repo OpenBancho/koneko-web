@@ -68,13 +68,6 @@
                                     loading="lazy" referrerpolicy="no-referrer">
                                 <span class="user-badge-name">{{ badge.name }}</span>
                             </span>
-
-                            <!-- The groups the account carries, in their own colours. -->
-                            <span class="group-badge" v-for="group in groups" :key="group.id"
-                                :style="groupStyle(group)" :title="group.name">
-                                <span v-if="group.icon">{{ group.icon }}</span>
-                                <span>{{ group.name }}</span>
-                            </span>
                         </div>
                     </div>
 
@@ -83,10 +76,8 @@
                          separated from them by a block. -->
                     <div class="profile-actions" v-if="showFriendButton">
                         <button class="button button-small" type="button"
-                            :class="friendshipButtonClass"
-                            :title="friendshipHint"
+                            :class="{ 'button-quiet': friendship.status === 'friends' }"
                             :disabled="friendship.busy || !friendship.loaded"
-                            @mouseenter="friendHover = true" @mouseleave="friendHover = false"
                             @click="actOnFriend">{{ friendshipLabel }}</button>
                         <span class="profile-actions-error" v-if="friendship.error">{{ friendship.error }}</span>
                     </div>
@@ -372,8 +363,6 @@ app.component("profile-view", {
         // friends. Fetched on its own and never from the FastLoad copy of the
         // page, so the button never shows a stale state.
         friendship: { loaded: false, status: "none", blocked: false, blockedBy: false, busy: false, error: "" },
-        // Hovering a "Following"/"Mutual" button swaps it to a red "Unfollow".
-        friendHover: false,
         modes: [
             { id: 0, label: "osu!" },
             { id: 1, label: "osu!taiko" },
@@ -459,10 +448,6 @@ app.component("profile-view", {
         countryName() {
             return (this.info.country || "").toUpperCase();
         },
-        // The groups the API sent with the profile, shown as badges.
-        groups() {
-            return this.info.groups || [];
-        },
         stats() {
             const stats = this.player && this.player.stats;
 
@@ -486,34 +471,13 @@ app.component("profile-view", {
                 && !this.friendship.blocked && !this.friendship.blockedBy;
         },
         friendshipLabel() {
-            if (this.friendship.busy) return "...";
+            if (!this.friendship.loaded || this.friendship.busy) return "Add friend";
 
             switch (this.friendship.status) {
-                case "mutual":
-                case "following":
-                    return this.friendHover ? "Unfollow"
-                        : (this.friendship.status === "mutual" ? "Mutual" : "Following");
-                case "followed_by": return "Follow back";
-                default: return "Follow";
-            }
-        },
-        // The button keeps a visible border whenever it sits on a state, so it
-        // reads against the profile background; hovering an unfollow turns it red.
-        friendshipButtonClass() {
-            const active = this.friendship.status === "following"
-                || this.friendship.status === "mutual";
-
-            if (active && this.friendHover) return "button-danger";
-            if (active) return "button-ghost";
-
-            return "";
-        },
-        friendshipHint() {
-            switch (this.friendship.status) {
-                case "mutual": return "You follow each other. Click to unfollow.";
-                case "following": return "You follow this player. Click to unfollow.";
-                case "followed_by": return "This player follows you. Click to follow back.";
-                default: return "Follow this player.";
+                case "friends": return "Remove friend";
+                case "outgoing": return "Request sent";
+                case "incoming": return "Accept request";
+                default: return "Add friend";
             }
         }
     },
@@ -730,15 +694,11 @@ app.component("profile-view", {
                 this.pending.beatmapsets = true;
             }
 
-            // The header is refetched on every visit, cache or not: it carries
-            // things that change without anyone editing the page - followers,
-            // groups - so only the fresh answer is the truth. A stored copy is
-            // painted first and replaced when the answer lands.
             if (this.player) {
                 this.snapshot.player = this.player;
+            } else {
+                this.loadHeader(run, who);
             }
-
-            this.loadHeader(run, who);
 
             // The requests all leave at once and are not awaited here:
             // whichever card is ready first is on screen first.
@@ -820,9 +780,9 @@ app.component("profile-view", {
 
             const action = {
                 none: "add",
-                following: "remove",
-                followed_by: "add",
-                mutual: "remove"
+                outgoing: "cancel",
+                incoming: "accept",
+                friends: "remove"
             }[this.friendship.status] || "add";
 
             this.friendship.busy = true;
@@ -830,8 +790,8 @@ app.component("profile-view", {
 
             // The follower count on the card counts the visitor's own row, so
             // it is kept in step with the state the server confirms.
-            const countedBefore = this.friendship.status === "following"
-                || this.friendship.status === "mutual";
+            const countedBefore = this.friendship.status === "outgoing"
+                || this.friendship.status === "friends";
 
             try {
                 const answer = await this.session("POST", "/account/friends",
@@ -841,7 +801,7 @@ app.component("profile-view", {
                 const next = (answer && answer.body && answer.body.relationship) || "none";
                 this.friendship.status = next;
 
-                const countedNow = next === "following" || next === "mutual";
+                const countedNow = next === "outgoing" || next === "friends";
 
                 if (countedNow !== countedBefore && typeof this.info.followers === "number") {
                     this.player.info.followers = Math.max(0,

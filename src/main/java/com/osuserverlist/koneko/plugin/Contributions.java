@@ -97,7 +97,7 @@ final class Contributions {
 
     /** Exact paths of the core pages. */
     static final List<String> RESERVED_PATHS = List.of(
-            "/", "/login", "/me", "/leaderboard", "/beatmaps", "/players", "/settings");
+            "/", "/login", "/me", "/leaderboard", "/beatmaps", "/settings");
 
     boolean isReserved(String path) {
         if (path == null || !path.startsWith("/")) {

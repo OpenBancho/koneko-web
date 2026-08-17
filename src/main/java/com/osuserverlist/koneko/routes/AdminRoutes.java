@@ -54,7 +54,9 @@ public final class AdminRoutes {
             "player", "/api/v1/admin/player",
             "logs", "/api/v1/admin/logs",
             "requests", "/api/v1/admin/requests",
-            "system", "/api/v1/admin/system");
+            "system", "/api/v1/admin/system",
+            "groups", "/api/v1/admin/groups",
+            "group-members", "/api/v1/admin/groups/members");
 
     /**
      * What the panel may do, and where it goes.
@@ -79,7 +81,10 @@ public final class AdminRoutes {
             Map.entry("country", "/api/v1/admin/user/country"),
             Map.entry("alert", "/api/v1/admin/alert"),
             Map.entry("beatmap-status", "/api/v1/admin/beatmap/status"),
-            Map.entry("requests-resolve", "/api/v1/admin/requests/resolve"));
+            Map.entry("requests-resolve", "/api/v1/admin/requests/resolve"),
+            // Groups: the page writes through one endpoint, membership through another.
+            Map.entry("groups", "/api/v1/admin/groups"),
+            Map.entry("group-members", "/api/v1/admin/groups/members"));
 
     private AdminRoutes() {
     }

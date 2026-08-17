@@ -70,28 +70,6 @@ public final class ViewRoutes {
         // API when the form is submitted.
         config.routes.get("/settings", page("settings-view"));
 
-        // Followers, following and the mutual ones. Personal, so a visitor
-        // without a session is sent to the login form first, the way /me sends them.
-        Handler followersPage = KonekoVue.component("friends-view");
-
-        config.routes.get("/followers", ctx -> {
-            UserSession session = Auth.current(ctx);
-
-            if (session == null) {
-                ctx.redirect("/login");
-                return;
-            }
-
-            if (Verification.blocksPage(ctx)) {
-                return;
-            }
-
-            followersPage.handle(ctx);
-        });
-
-        // The address this page had as "friends": old links keep working.
-        config.routes.get("/friends", ctx -> ctx.redirect("/followers"));
-
         // Convenience route so the navigation bar can link to a profile
         // without knowing the id up front.
         config.routes.get("/me", ctx -> {
@@ -121,7 +99,6 @@ public final class ViewRoutes {
         config.routes.get("/admin/requests", panel);
         config.routes.get("/admin/moderation", panel);
         config.routes.get("/admin/moderation/{userId}", panel);
-        config.routes.get("/admin/groups", panel);
         config.routes.get("/admin/logs", panel);
         config.routes.get("/admin/server", panel);
 

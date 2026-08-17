@@ -56,7 +56,7 @@
 
                     <div class="nav-menu-panel" v-if="menuOpen" @click.stop>
                         <a class="nav-menu-item" :href="'/u/' + user.id">Profile</a>
-                        <a class="nav-menu-item" href="/followers">Followers</a>
+                        <a class="nav-menu-item" href="/friends">Friends</a>
                         <a class="nav-menu-item" href="/settings">Settings</a>
 
                         <!-- Staff only, and set apart: it leaves the site proper for

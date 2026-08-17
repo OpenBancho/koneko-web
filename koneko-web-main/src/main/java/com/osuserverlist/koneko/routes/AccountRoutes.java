@@ -52,8 +52,8 @@ public final class AccountRoutes {
             // Setting up, confirming and removing an authenticator. Which of the three a call
             // means is in the body, so one action covers all of it.
             "2fa", "/api/v1/me/2fa",
-            // Following: follow, unfollow and remove_follower share one action,
-            // which one a call means is in the body - the same arrangement as 2fa.
+            // Friending: adding, accepting, declining, cancelling and removing share one
+            // action, which one a call means is in the body - the same arrangement as 2fa.
             "friends", "/api/v1/me/friends");
 
     private AccountRoutes() {

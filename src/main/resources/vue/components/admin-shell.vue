@@ -66,6 +66,7 @@
                     { id: "requests", label: "Requests", href: "/admin/requests" },
                     { id: "moderation", label: "Moderation", href: "/admin/moderation" },
                     { id: "logs", label: "Logs", href: "/admin/logs" },
+                    { id: "groups", label: "Groups", href: "/admin/groups" },
                     { id: "server", label: "Server", href: "/admin/server" }
                 ];
 

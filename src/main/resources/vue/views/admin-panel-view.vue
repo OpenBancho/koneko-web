@@ -41,7 +41,7 @@
             section() {
                 const name = this.parts[1] || "overview";
 
-                return ["requests", "moderation", "logs", "server"].indexOf(name) !== -1
+                return ["requests", "moderation", "logs", "groups", "server"].indexOf(name) !== -1
                     ? name
                     : "overview";
             },
@@ -50,6 +50,7 @@
 
                 if (name === "requests") return "admin-requests-view";
                 if (name === "logs") return "admin-logs-view";
+                if (name === "groups") return "admin-groups-view";
                 if (name === "server") return "admin-server-view";
 
                 if (name === "moderation") {

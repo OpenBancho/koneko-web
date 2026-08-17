@@ -84,6 +84,10 @@
                                 :class="flagClass(row.country)"
                                 :title="row.country.toUpperCase()"></span>
                             <a :href="'/u/' + row.id + (mode ? '?mode=' + mode : '')">{{ row.name }}</a>
+                            <span class="group-badge group-badge-small" v-for="group in row.groups || []"
+                                :key="group.id" :style="groupStyle(group)" :title="group.name">
+                                <span v-if="group.icon">{{ group.icon }}</span><span>{{ group.name }}</span>
+                            </span>
                         </td>
                         <td class="numeric">{{ fmtNumber(row.pp) }}</td>
                         <td class="numeric">{{ fmtAccuracy(row.acc) }}</td>

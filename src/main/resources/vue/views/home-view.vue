@@ -108,7 +108,6 @@
             <div class="card home-panel" v-if="home.showNewPlayers">
                 <div class="home-panel-head">
                     <h2>New players</h2>
-                    <a class="home-panel-more" href="/players">All players</a>
                 </div>
 
                 <p class="muted" v-if="loading && !newPlayers.length">Loading...</p>
