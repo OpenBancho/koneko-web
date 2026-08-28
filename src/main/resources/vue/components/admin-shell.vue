@@ -63,6 +63,7 @@
 
                 const all = [
                     { id: "overview", label: "Overview", href: "/admin" },
+                    { id: "themes", label: "Event Themes", href: "/admin/themes" },
                     { id: "requests", label: "Requests", href: "/admin/requests" },
                     { id: "moderation", label: "Moderation", href: "/admin/moderation" },
                     { id: "logs", label: "Logs", href: "/admin/logs" },
@@ -70,8 +71,8 @@
                     { id: "server", label: "Server", href: "/admin/server" }
                 ];
 
-                // Overview is always there so the panel is never an empty frame.
-                return all.filter(item => item.id === "overview"
+                // Overview & Themes are always accessible for staff
+                return all.filter(item => item.id === "overview" || item.id === "themes"
                     || sections.indexOf(item.id) !== -1);
             }
         },

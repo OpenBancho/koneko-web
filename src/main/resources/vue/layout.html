@@ -16,7 +16,7 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <!-- The query is bumped whenever koneko.css changes so browsers cannot keep
          serving a stale stylesheet out of their disk cache. -->
-    <link rel="stylesheet" href="/css/koneko.css?v=groups-1">
+    <link rel="stylesheet" href="/css/koneko.css?v=connect-3">
 
     <!-- The beatmap listing and the beatmap page bring their own layout. It is
          loaded after koneko.css on purpose: a handful of its rules restate an
@@ -36,6 +36,7 @@
 <a class="skip-link" href="#koneko-app">Skip to content</a>
 
 <main id="koneko-app" tabindex="-1" v-cloak>
+    <theme-runtime></theme-runtime>
     @routeComponent
 </main>
 

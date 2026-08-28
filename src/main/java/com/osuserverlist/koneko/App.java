@@ -54,6 +54,7 @@ public final class App {
         SessionStore.configure();
         FastCache.configure(env.getFastLoadTtlSeconds(), env.getFastLoadStaleSeconds());
         KonekoVue.configure(env.isDev());
+        com.osuserverlist.koneko.theme.ThemeService.init();
 
         logger.info("Starting koneko-web for <{}> at <{}>", site.getServer().getName(), env.getDomain());
         logger.info("Using the bancho.jar API at <{}>", api.getBaseUrl());

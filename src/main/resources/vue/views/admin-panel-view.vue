@@ -41,13 +41,14 @@
             section() {
                 const name = this.parts[1] || "overview";
 
-                return ["requests", "moderation", "logs", "groups", "server"].indexOf(name) !== -1
+                return ["themes", "requests", "moderation", "logs", "groups", "server"].indexOf(name) !== -1
                     ? name
                     : "overview";
             },
             view() {
                 const name = this.parts[1];
 
+                if (name === "themes") return "admin-themes-view";
                 if (name === "requests") return "admin-requests-view";
                 if (name === "logs") return "admin-logs-view";
                 if (name === "groups") return "admin-groups-view";

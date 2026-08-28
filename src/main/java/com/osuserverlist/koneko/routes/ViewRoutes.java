@@ -48,6 +48,8 @@ public final class ViewRoutes {
 
         config.routes.get("/u/{identifier}", profilePage());
         config.routes.get("/leaderboard", page("leaderboard-view"));
+        config.routes.get("/connect", page("connect-view"));
+        config.routes.get("/how-to-connect", ctx -> ctx.redirect("/connect"));
         // Open to everybody, including an account that is restricted: it is
         // the page that explains what a restriction is.
         config.routes.get("/restrictions", KonekoVue.component("restrictions-view"));
@@ -118,6 +120,7 @@ public final class ViewRoutes {
         Handler panel = staffPage("admin-panel-view");
 
         config.routes.get("/admin", panel);
+        config.routes.get("/admin/themes", panel);
         config.routes.get("/admin/requests", panel);
         config.routes.get("/admin/moderation", panel);
         config.routes.get("/admin/moderation/{userId}", panel);

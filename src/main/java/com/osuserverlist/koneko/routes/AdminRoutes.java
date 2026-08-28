@@ -1,7 +1,10 @@
 package com.osuserverlist.koneko.routes;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+
+import com.osuserverlist.koneko.theme.ThemeService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,6 +93,13 @@ public final class AdminRoutes {
     }
 
     public static void register(JavalinConfig config) {
+        // Event Themes management routes
+        config.routes.get("/admin/api/themes", AdminRoutes::getThemes);
+        config.routes.post("/admin/api/themes/fetch", AdminRoutes::fetchThemes);
+        config.routes.post("/admin/api/themes/select", AdminRoutes::selectTheme);
+        config.routes.post("/admin/api/themes/settings", AdminRoutes::saveThemeSettings);
+        config.routes.post("/admin/api/themes/reset", AdminRoutes::resetTheme);
+
         config.routes.get("/admin/api/{action}", AdminRoutes::read);
         config.routes.post("/admin/api/{action}", AdminRoutes::write);
         // The gate itself, which is the one thing here that works before the gate is open.
@@ -257,6 +267,109 @@ public final class AdminRoutes {
 
     private static void deny(Context ctx) {
         ctx.status(403).json(Map.of("status", "This page is for staff."));
+    }
+
+    private static boolean checkStaffAccess(Context ctx) {
+        UserSession session = Auth.current(ctx);
+
+        if (!isStaff(session)) {
+            deny(ctx);
+            return false;
+        }
+
+        if (Verification.blocksApi(ctx, session)) {
+            return false;
+        }
+
+        if (StaffTwoFactor.blocksApi(ctx, session)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void getThemes(Context ctx) {
+        if (!checkStaffAccess(ctx)) return;
+        ctx.header("Cache-Control", "private, no-store");
+        ctx.json(ThemeService.getAdminState());
+    }
+
+    private static void fetchThemes(Context ctx) {
+        if (!checkStaffAccess(ctx)) return;
+        String url = null;
+        try {
+            if (ctx.body() != null && !ctx.body().isBlank()) {
+                JsonNode body = MAPPER.readTree(ctx.body());
+                if (body.has("url") && !body.get("url").isNull()) {
+                    url = body.get("url").asText();
+                }
+            }
+            List<Map<String, Object>> themes = ThemeService.fetchThemes(url);
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("status", "success");
+            res.put("themes", themes);
+            res.put("state", ThemeService.getAdminState());
+            ctx.header("Cache-Control", "private, no-store");
+            ctx.json(res);
+        } catch (Exception e) {
+            ctx.status(400).json(Map.of("status", "Failed to fetch themes: " + e.getMessage()));
+        }
+    }
+
+    private static void selectTheme(Context ctx) {
+        if (!checkStaffAccess(ctx)) return;
+        try {
+            JsonNode body = MAPPER.readTree(ctx.body());
+            String themeId = body.path("id").asText();
+            if (themeId == null || themeId.isBlank()) {
+                ctx.status(400).json(Map.of("status", "Theme ID is required."));
+                return;
+            }
+            Map<String, Object> directData = null;
+            if (body.has("data") && body.get("data").isObject()) {
+                directData = MAPPER.convertValue(body.get("data"), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+            }
+            Map<String, Object> activated = ThemeService.activateTheme(themeId, directData);
+            UserSession session = Auth.current(ctx);
+            logger.info("Staff <{}> activated event theme <{}>", session != null ? session.getUsername() : "unknown", themeId);
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("status", "success");
+            res.put("theme", activated);
+            res.put("state", ThemeService.getAdminState());
+            ctx.header("Cache-Control", "private, no-store");
+            ctx.json(res);
+        } catch (Exception e) {
+            ctx.status(400).json(Map.of("status", e.getMessage() != null ? e.getMessage() : "Failed to activate theme"));
+        }
+    }
+
+    private static void saveThemeSettings(Context ctx) {
+        if (!checkStaffAccess(ctx)) return;
+        try {
+            JsonNode body = MAPPER.readTree(ctx.body());
+            String sourceUrl = body.has("sourceUrl") ? body.get("sourceUrl").asText() : null;
+            Boolean enabled = body.has("enabled") ? body.get("enabled").asBoolean() : null;
+            ThemeService.updateSettings(sourceUrl, enabled);
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("status", "success");
+            res.put("state", ThemeService.getAdminState());
+            ctx.header("Cache-Control", "private, no-store");
+            ctx.json(res);
+        } catch (Exception e) {
+            ctx.status(400).json(Map.of("status", e.getMessage()));
+        }
+    }
+
+    private static void resetTheme(Context ctx) {
+        if (!checkStaffAccess(ctx)) return;
+        ThemeService.deactivateTheme();
+        UserSession session = Auth.current(ctx);
+        logger.info("Staff <{}> deactivated event theme", session != null ? session.getUsername() : "unknown");
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("status", "success");
+        res.put("state", ThemeService.getAdminState());
+        ctx.header("Cache-Control", "private, no-store");
+        ctx.json(res);
     }
 
     /**

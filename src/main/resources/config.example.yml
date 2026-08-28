@@ -50,9 +50,9 @@ home:
   # Show the "how to connect" block with the -devserver instructions.
   show_connect_guide: true
 
-  # Background image of the welcome band on the front page. Any URL.
+  # Background image or video (.mp4) of the welcome band on the front page. Any URL or /logo.mp4.
   # Leave empty for the plain purple gradient.
-  hero_image: ""
+  hero_image: "/logo.mp4"
 
   # Server logo, shown in the navigation bar and on the welcome band.
   # Leave empty to use the initials of the server name instead.
