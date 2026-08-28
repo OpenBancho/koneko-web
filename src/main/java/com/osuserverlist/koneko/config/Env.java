@@ -1,5 +1,8 @@
 package com.osuserverlist.koneko.config;
 
+import java.util.Arrays;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +63,26 @@ public final class Env {
     private final int fastLoadStaleSeconds;
     private final int fastLoadClientTtlSeconds;
 
+    /**
+     * Hosts a theme may be fetched from. Empty means the theme engine cannot fetch anything,
+     * which is the default: an operator who has not named a source has not chosen one.
+     */
+    private final List<String> themeSourceHosts;
+
+    /**
+     * Whether a theme's custom JavaScript is executed at all.
+     *
+     * <p>Lives here, in a file on the server, and not in the panel on purpose. Turning it on
+     * means accepting that a theme source can run code in every visitor's browser, and that
+     * decision belongs to whoever administers the deployment rather than to whoever happens
+     * to hold a staff bit today. Reaching this file means shell access; reaching the panel
+     * only means a session.
+     *
+     * <p>Even when on, the code runs in a sandboxed frame with an opaque origin - it cannot
+     * read the page, the session cookie, or call the API as the visitor.
+     */
+    private final boolean themeCustomJsAllowed;
+
     private Env(Dotenv dotenv) {
         this.port = intOf(dotenv, "PORT", 8300);
         this.domain = stringOf(dotenv, "DOMAIN", "localhost");
@@ -77,6 +100,8 @@ public final class Env {
         this.fastLoadTtlSeconds = intOf(dotenv, "FASTLOAD_TTL_SECONDS", 15);
         this.fastLoadStaleSeconds = intOf(dotenv, "FASTLOAD_STALE_SECONDS", 120);
         this.fastLoadClientTtlSeconds = intOf(dotenv, "FASTLOAD_CLIENT_TTL_SECONDS", 600);
+        this.themeSourceHosts = listOf(dotenv, "THEME_SOURCE_HOSTS");
+        this.themeCustomJsAllowed = booleanOf(dotenv, "THEME_ALLOW_CUSTOM_JS", false);
     }
 
     /** Loads {@code .env} from the working directory; a missing file is fine. */
@@ -116,6 +141,20 @@ public final class Env {
         }
 
         return value == null || value.isBlank() ? fallback : value.trim();
+    }
+
+    /** A comma separated list, trimmed and without the empties. */
+    private static List<String> listOf(Dotenv dotenv, String key) {
+        String raw = stringOf(dotenv, key, "");
+
+        if (raw.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(raw.split(","))
+                .map(String::trim)
+                .filter(entry -> !entry.isEmpty())
+                .toList();
     }
 
     private static boolean booleanOf(Dotenv dotenv, String key, boolean fallback) {

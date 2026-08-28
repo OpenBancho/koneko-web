@@ -70,6 +70,21 @@
                 <p class="muted small admin-fetch-meta" v-if="state.lastFetched">
                     Last synchronized: {{ fmtRelative(state.lastFetched) }} from <code>{{ state.sourceUrl }}</code>
                 </p>
+
+                <p class="muted small admin-fetch-meta" v-if="state.allowedHosts && state.allowedHosts.length">
+                    Themes may be fetched from: <code v-for="host in state.allowedHosts" :key="host">{{ host }}</code>
+                    — set in <code>THEME_SOURCE_HOSTS</code> on the server.
+                </p>
+                <p class="muted small admin-fetch-meta" v-else>
+                    No theme source hosts are configured, so nothing can be fetched yet.
+                    Set <code>THEME_SOURCE_HOSTS</code> in <code>.env</code> on the server first.
+                </p>
+
+                <p class="muted small admin-fetch-meta" v-if="state.approvedBy">
+                    Active theme approved by <strong>{{ state.approvedBy }}</strong>
+                    {{ state.approvedAt ? fmtRelative(state.approvedAt) : '' }}.
+                    Custom scripts: {{ state.jsApproved ? 'approved' : 'not running' }}.
+                </p>
             </div>
         </section>
 
@@ -315,6 +330,66 @@
                 </div>
             </div>
         </div>
+
+        <!--
+            The consent step. Only appears for a theme that actually carries scripts, so it
+            stays a decision rather than a dialog people learn to click through.
+        -->
+        <div class="admin-modal-overlay" v-if="pendingTheme" @click.self="cancelConsent"
+            role="dialog" aria-modal="true" aria-labelledby="consent-modal-title">
+            <div class="admin-modal-container">
+                <div class="admin-modal-header">
+                    <h3 id="consent-modal-title">“{{ pendingTheme.name }}” includes its own scripts</h3>
+                    <button class="admin-modal-close" type="button" aria-label="Close"
+                        @click="cancelConsent">&times;</button>
+                </div>
+
+                <div class="admin-modal-body">
+                    <p>
+                        This theme ships {{ (pendingTheme.custom_js || '').length }} bytes of
+                        JavaScript from <code>{{ pendingSourceLabel }}</code>.
+                    </p>
+
+                    <p class="muted small">
+                        The script runs in a sandboxed frame with its own empty origin. It cannot
+                        read this site's pages, cannot read the session cookie, cannot act as a
+                        logged-in player, and cannot reach the network. The frame is drawn beneath
+                        the page and ignores clicks, and themes are never applied on the login,
+                        register, settings or two-factor pages.
+                    </p>
+
+                    <p class="muted small">
+                        What it can still do: make the site look wrong, and use a visitor's CPU.
+                        Approving records your name against this exact version of the theme — if
+                        the source changes the script later, it stops running until somebody
+                        approves the new version.
+                    </p>
+
+                    <p class="muted small" v-if="!state.customJsAllowedByServer">
+                        <strong>Note:</strong> <code>THEME_ALLOW_CUSTOM_JS</code> is off on this
+                        server, so the script will not run even if you approve it. The rest of the
+                        theme — colours, stylesheet, particles — is applied either way.
+                    </p>
+
+                    <label class="admin-check">
+                        <input type="checkbox" v-model="jsConsent">
+                        <span>
+                            I have reviewed this theme's script, I accept the risk described
+                            above, and I trust <code>{{ pendingSourceLabel }}</code>.
+                        </span>
+                    </label>
+                </div>
+
+                <div class="admin-modal-footer">
+                    <button class="button" type="button" :disabled="saving" @click="confirmConsent">
+                        {{ jsConsent ? 'Approve scripts and apply' : 'Apply without scripts' }}
+                    </button>
+                    <button class="button button-ghost" type="button" @click="cancelConsent">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -326,7 +401,9 @@
     app.component("admin-themes-view", {
         template: "#admin-themes-view",
         props: {
-            can: { type: Function, default: () => () => true }
+            // Closed by default, like every other admin view: a panel that assumes
+            // permission is a panel that grants it.
+            can: { type: Function, default: () => () => false }
         },
         data: () => ({
             loading: true,
@@ -334,19 +411,29 @@
             saving: false,
             errorMsg: "",
             successMsg: "",
-            customUrl: "http://localhost:3000/api/themes",
+            customUrl: "",
             selectedCategory: "all",
             previewModalTheme: null,
             jsonModalTheme: null,
             directJsonModalOpen: false,
             directJsonText: "",
+
+            // The theme waiting on the consent step, and the box itself. The box resets to
+            // false for every theme, so an approval is never inherited from the last one.
+            pendingTheme: null,
+            pendingIsImport: false,
+            jsConsent: false,
+
             state: {
                 enabled: true,
-                sourceUrl: "http://localhost:3000/api/themes",
+                sourceUrl: "",
                 activeThemeId: null,
                 activeTheme: null,
                 availableThemes: [],
-                lastFetched: null
+                lastFetched: null,
+                jsApproved: false,
+                customJsAllowedByServer: false,
+                allowedHosts: []
             }
         }),
         computed: {
@@ -368,6 +455,12 @@
                 const list = this.state.availableThemes || [];
                 if (this.selectedCategory === "all") return list;
                 return list.filter(t => t.category === this.selectedCategory);
+            },
+
+            pendingSourceLabel() {
+                return this.pendingIsImport
+                    ? "a payload pasted by hand"
+                    : (this.state.sourceUrl || "the configured source");
             }
         },
         methods: {
@@ -446,31 +539,87 @@
                     this.saving = false;
                 }
             },
+            /**
+             * Applies a theme, asking about its scripts first when it has any.
+             *
+             * The theme is never sent from here: only its id goes to the server, which
+             * applies the copy it fetched and checked itself. Sending the object would mean
+             * the panel could apply a payload the server never validated.
+             */
             async activate(theme) {
+                if (theme.custom_js) {
+                    this.pendingTheme = theme;
+                    this.pendingIsImport = false;
+                    this.jsConsent = false;
+                    return;
+                }
+
+                await this.sendActivation(theme, false);
+            },
+
+            async sendActivation(theme, jsConsent) {
                 this.saving = true;
                 this.errorMsg = "";
                 this.successMsg = "";
+
                 try {
                     const res = await this.session("POST", "/admin/api/themes/select", {
                         id: theme.id,
-                        data: theme
+                        jsConsent: jsConsent
                     });
+
                     if (res && res.state) {
                         this.state = res.state;
-                        this.successMsg = `Activated theme “${theme.name}” site-wide!`;
-                        if (window.__koneko) {
-                            window.__koneko.theme = {
-                                enabled: true,
-                                activeThemeId: theme.id,
-                                active: res.theme || theme
-                            };
-                        }
+                        this.successMsg = res.state.jsApproved
+                            ? `Applied “${theme.name}” with its scripts approved.`
+                            : `Applied “${theme.name}”.`;
+                        this.publishTheme(res);
                     }
                 } catch (e) {
-                    this.errorMsg = e.message || "Failed to activate theme.";
+                    this.errorMsg = e.message || "That theme could not be applied.";
                 } finally {
                     this.saving = false;
                 }
+            },
+
+            /**
+             * Mirrors the server's answer into the bootstrap so the runtime picks it up
+             * without a reload. Read from the response rather than assembled here, so the
+             * page shows what the server actually stored, including a stripped script.
+             */
+            publishTheme(res) {
+                if (!window.__koneko) {
+                    return;
+                }
+
+                const theme = res.theme || null;
+
+                window.__koneko.theme = {
+                    enabled: Boolean(theme),
+                    activeThemeId: res.state ? res.state.activeThemeId : null,
+                    active: theme,
+                    jsEnabled: Boolean(res.state && res.state.jsApproved
+                        && res.state.customJsAllowedByServer && theme && theme.custom_js)
+                };
+            },
+
+            async confirmConsent() {
+                const theme = this.pendingTheme;
+                const consent = this.jsConsent;
+                const isImport = this.pendingIsImport;
+
+                this.pendingTheme = null;
+
+                if (isImport) {
+                    await this.sendImport(theme, consent);
+                } else {
+                    await this.sendActivation(theme, consent);
+                }
+            },
+
+            cancelConsent() {
+                this.pendingTheme = null;
+                this.jsConsent = false;
             },
             async deactivate() {
                 this.saving = true;
@@ -485,6 +634,7 @@
                             window.__koneko.theme.enabled = false;
                             window.__koneko.theme.active = null;
                             window.__koneko.theme.activeThemeId = null;
+                            window.__koneko.theme.jsEnabled = false;
                         }
                     }
                 } catch (e) {
@@ -509,15 +659,64 @@
                 this.directJsonText = "";
                 this.directJsonModalOpen = true;
             },
+            /**
+             * Applies a pasted theme through its own endpoint.
+             *
+             * Separate from activate() because the two are different acts: one picks a theme
+             * the server fetched and checked, the other hands it a payload from outside
+             * altogether. Sharing a route let the second borrow the first's trust.
+             */
             async applyDirectJson() {
-                if (!this.directJsonText.trim()) return;
+                if (!this.directJsonText.trim()) {
+                    return;
+                }
+
+                let parsed;
+
                 try {
-                    const parsed = JSON.parse(this.directJsonText);
-                    if (!parsed.id) throw new Error("JSON must have an 'id' field.");
-                    await this.activate(parsed);
-                    this.directJsonModalOpen = false;
+                    parsed = JSON.parse(this.directJsonText);
                 } catch (e) {
-                    this.errorMsg = "Invalid JSON: " + e.message;
+                    this.errorMsg = "That is not valid JSON: " + e.message;
+                    return;
+                }
+
+                if (!parsed || !parsed.id) {
+                    this.errorMsg = "The pasted theme needs an \"id\" field.";
+                    return;
+                }
+
+                this.directJsonModalOpen = false;
+
+                if (parsed.custom_js) {
+                    this.pendingTheme = parsed;
+                    this.pendingIsImport = true;
+                    this.jsConsent = false;
+                    return;
+                }
+
+                await this.sendImport(parsed, false);
+            },
+
+            async sendImport(theme, jsConsent) {
+                this.saving = true;
+                this.errorMsg = "";
+                this.successMsg = "";
+
+                try {
+                    const res = await this.session("POST", "/admin/api/themes/import", {
+                        theme: theme,
+                        jsConsent: jsConsent
+                    });
+
+                    if (res && res.state) {
+                        this.state = res.state;
+                        this.successMsg = `Imported and applied “${theme.name || theme.id}”.`;
+                        this.publishTheme(res);
+                    }
+                } catch (e) {
+                    this.errorMsg = e.message || "That theme could not be imported.";
+                } finally {
+                    this.saving = false;
                 }
             },
             onKey(e) {
@@ -525,6 +724,7 @@
                     this.closePreview();
                     this.closeJson();
                     this.directJsonModalOpen = false;
+                    this.cancelConsent();
                 }
             }
         },
