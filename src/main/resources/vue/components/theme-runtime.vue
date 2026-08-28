@@ -123,8 +123,13 @@
              *
              * The theme's code goes in as a JS string literal with every "<" written as an
              * escape, so a closing script tag inside it cannot end the block early and write
-             * markup of its own. Building the literal is what makes that possible: pasting the
-             * code in raw would let "</script>" in a comment take over the document.
+             * markup of its own.
+             *
+             * The same care is needed for this file, and for the same reason. The HTML parser
+             * ends a script block at the first closing-script sequence it meets, without
+             * caring that it sits inside a string or a comment - so every script tag emitted
+             * below is written with a \u003c escape. Spelled out literally, one of them would
+             * end this component early and drop the rest of the file onto the page as text.
              */
             frameDocument() {
                 const code = JSON.stringify(String(this.theme.custom_js || ""))
@@ -136,7 +141,8 @@
                     "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; ",
                     "style-src 'unsafe-inline'; img-src data: blob:; font-src data:\">",
                     "<style>html,body{margin:0;height:100%;overflow:hidden;",
-                    "background:transparent;pointer-events:none}</style></head><body><script>",
+                    "background:transparent;pointer-events:none}</style>",
+                    "</head><body>\u003cscript>",
                     "(function(){",
                     // The frame reports in so the parent can tell a hung theme from a
                     // finished one, and asks for the little context it is allowed.
@@ -147,7 +153,7 @@
                     "catch(e){try{parent.postMessage({type:'theme:error',",
                     "message:String(e&&e.message||e)},'*')}catch(_){}}",
                     "})();",
-                    "<\/script></body></html>"
+                    "\u003c/script></body></html>"
                 ].join("");
             }
         },

@@ -176,6 +176,39 @@ public final class KonekoVue {
         return marker.matcher(source).replaceAll(Matcher.quoteReplacement(replacement));
     }
 
+    /**
+     * Warns when a component ends its script block before the end of the file.
+     *
+     * <p>The HTML parser closes a script element at the first {@code </script} it sees and
+     * does not care that it sits inside a string or a comment. A component that spells the
+     * sequence out mid-file therefore stops being JavaScript at that point: the rest lands on
+     * the page as text, the browser reports a syntax error, and any markup further down - a
+     * stylesheet especially - is applied for real. That failure is silent on the server and
+     * looks nothing like its cause in the browser, which is exactly why it is checked here.
+     *
+     * <p>The fix in a component is to write the tag with an escape, {@code \u005Cu003c/script>},
+     * which the parser does not recognise while JavaScript still reads it as the same string.
+     */
+    private static void warnAboutEarlyScriptEnd(String file, String source) {
+        int last = source.lastIndexOf("</script");
+
+        if (last < 0) {
+            return;
+        }
+
+        int first = source.indexOf("</script");
+
+        if (first == last) {
+            return;
+        }
+
+        long line = source.chars().limit(first).filter(c -> c == '\n').count() + 1;
+
+        logger.error("{} spells out a closing script tag on line {}, before the end of the file."
+                + " Everything after it is served as text instead of JavaScript."
+                + " Write it as \\u003c/script> instead.", file, line);
+    }
+
     private static String components() throws IOException {
         String cached = cachedComponents;
 
@@ -186,8 +219,12 @@ public final class KonekoVue {
         StringBuilder builder = new StringBuilder();
 
         for (String file : componentFiles()) {
+            String source = readFile(file);
+
+            warnAboutEarlyScriptEnd(file, source);
+
             builder.append("<!-- ").append(file).append(" -->\n");
-            builder.append(readFile(file)).append('\n');
+            builder.append(source).append('\n');
         }
 
         String components = builder.toString();
