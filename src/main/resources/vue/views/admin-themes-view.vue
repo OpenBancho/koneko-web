@@ -31,6 +31,16 @@
                 <button type="button" class="admin-theme-alert-close" aria-label="Close error" @click="errorMsg = ''">&times;</button>
             </div>
 
+            <!--
+                A problem the server is still having, as opposed to a request that just failed.
+                It has no close button on purpose: it describes a condition that is still true,
+                so dismissing it would only hide a broken deployment until the next reload. It
+                disappears when the server stops reporting it.
+            -->
+            <div class="admin-theme-alert is-warning" v-if="state.error" role="alert" aria-live="polite">
+                <span>{{ state.error }}</span>
+            </div>
+
             <!-- Remote Endpoint Input & Actions -->
             <div class="admin-themes-config-box">
                 <div class="admin-field-grow">
@@ -432,6 +442,12 @@
                 availableThemes: [],
                 lastFetched: null,
                 jsApproved: false,
+
+                // A problem the server is reporting about itself, such as settings that are
+                // live in memory but could not be written to disk. Separate from errorMsg,
+                // which is about the request this panel just made.
+                error: null,
+
                 customJsAllowedByServer: false,
                 allowedHosts: []
             }

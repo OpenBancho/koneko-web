@@ -8,8 +8,17 @@
         flag-icons ships one SVG per country and addresses them with a
         class, so flags look the same on every system instead of relying
         on the emoji font, which Windows does not have.
+
+        The integrity hash is what makes a third-party stylesheet on this
+        origin acceptable: a version tag pins which release was asked for,
+        not what the CDN answers with. The browser drops the file if the
+        bytes ever stop matching. Hash verified against the flag-icons
+        7.2.3 tarball on registry.npmjs.org; recompute it when the version
+        changes, or the stylesheet stops loading.
     -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css"
+        integrity="sha384-aQuvIWWIbpu/mSqULLDiUveyYiPoJzPKAWjUmGJ+Elm+N/LJhzfZqsutsfw870JS"
+        crossorigin="anonymous">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
@@ -46,7 +55,21 @@
 -->
 <script src="/data/bootstrap.js"></script>
 
-<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+<!--
+    Vue runs on this origin with the visitor's session, so it is the most
+    privileged script on the page - it can reach every form and call the API
+    as whoever is logged in. The integrity hash is therefore not optional
+    hardening: @3.5.13 pins the version that was asked for, and the hash pins
+    the bytes that come back. Without it, a compromised or misdirected CDN
+    answer executes with full privileges and nothing here would notice.
+
+    Hash verified against the vue 3.5.13 tarball on registry.npmjs.org.
+    Recompute it when the version changes, or the page stops loading Vue:
+        openssl dgst -sha384 -binary vue.global.prod.js | openssl base64 -A
+-->
+<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"
+    integrity="sha384-W/1Fp/LgAYO/oTn9Gs+PbeWuMuq1eQCnUMPCeg8POmMYchhzxctjEqtbiCIxDOON"
+    crossorigin="anonymous"></script>
 
 <script>
     // The app has to exist before the components are registered: every

@@ -35,6 +35,7 @@ val dotenvVersion = "5.2.2"
 val jacksonVersion = "2.21.2"
 val logbackVersion = "1.5.38"
 val pf4jVersion = "3.13.0"
+val junitVersion = "5.14.2"
 
 dependencies {
     compileOnly("org.projectlombok:lombok:$lombokVersion")
@@ -53,6 +54,21 @@ dependencies {
     // The .jar plugin host. Plugins are loaded from the plugins directory at
     // boot, so nothing about them is known at build time.
     implementation("org.pf4j:pf4j:$pf4jVersion")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
+
+    // The tests are deliberately offline: a suite that needs DNS fails for reasons that
+    // have nothing to do with the code under test, and a security test nobody trusts is a
+    // security test nobody runs.
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }
 
 /**
@@ -123,6 +139,9 @@ tasks.jar {
 }
 
 tasks.shadowJar {
+    // A jar that ships without its tests having run is a jar nobody knows anything about.
+    dependsOn(tasks.test)
+
     archiveFileName.set("koneko-web-shaded.jar")
     mergeServiceFiles()
 

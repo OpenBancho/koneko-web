@@ -5186,6 +5186,17 @@ body {
     color: #f87171;
 }
 
+/*
+ * A condition the server is still in, rather than a request that failed. Amber instead of
+ * red because the action usually succeeded - it just will not survive a restart - and it
+ * carries no close button, so it needs to read as persistent rather than as a failure.
+ */
+.admin-theme-alert.is-warning {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #fbbf24;
+}
+
 .admin-theme-alert-close {
     background: none;
     border: none;

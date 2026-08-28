@@ -587,6 +587,19 @@ public final class ThemeService {
         }
     }
 
+    /**
+     * Writes the settings to disk and records the outcome in the state.
+     *
+     * <p>A failure here is not cosmetic: the change is already live in memory, so a staff
+     * member who is told nothing sees the theme they asked for and then finds it gone after the
+     * next restart. The message therefore goes into {@code lastError}, which the panel shows,
+     * as well as into the log with its cause attached - a full disk and a read-only mount are
+     * different problems and the stack trace is what tells them apart.
+     *
+     * <p>Called with {@link #WRITE_LOCK} held, and it updates the state itself - setting
+     * {@code lastError} on failure and clearing it on success - so the caller must not
+     * overwrite the state afterwards.
+     */
     private static void saveConfig() {
         State state = STATE.get();
 
@@ -607,8 +620,31 @@ public final class ThemeService {
 
             Files.writeString(CONFIG_PATH,
                     MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(data));
+
+            // A successful write clears a previous failure. Done here rather than left to the
+            // callers so that the banner cannot outlive the problem it describes if a future
+            // caller forgets to reset it.
+            if (state.lastError() != null) {
+                State latest = STATE.get();
+
+                STATE.set(new State(latest.engineEnabled(), latest.sourceUrl(),
+                        latest.activeThemeId(), latest.activeTheme(), latest.activeFingerprint(),
+                        latest.approvedBy(), latest.approvedAt(), latest.jsApproved(),
+                        latest.availableThemes(), latest.lastFetched(), null));
+            }
         } catch (Exception e) {
-            logger.warn("Could not save theme settings to {}: {}", CONFIG_PATH, e.getMessage());
+            logger.error("Could not save theme settings to {}. The change is live now but will "
+                    + "be lost when the service restarts.", CONFIG_PATH, e);
+
+            State latest = STATE.get();
+
+            STATE.set(new State(latest.engineEnabled(), latest.sourceUrl(), latest.activeThemeId(),
+                    latest.activeTheme(), latest.activeFingerprint(), latest.approvedBy(),
+                    latest.approvedAt(), latest.jsApproved(), latest.availableThemes(),
+                    latest.lastFetched(),
+                    "This change is live but could not be written to " + CONFIG_PATH
+                            + " (" + e.getClass().getSimpleName() + ": " + e.getMessage()
+                            + "), so it will be lost when the service restarts."));
         }
     }
 }
