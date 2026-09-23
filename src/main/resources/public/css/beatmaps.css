@@ -175,217 +175,813 @@
 .mapset-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
-    gap: 16px;
+    gap: 20px;
 }
 
 .mapset-grid-list {
     grid-template-columns: 1fr;
 }
 
-/*
- * The card is its own cover: a dimmed, blurred copy of the artwork fills the
- * row, and the text sits on top of it. That is why every layer below carries
- * position: relative - the cover is the only absolutely placed one.
- */
+
+
+.beatmapset-panel,
 .mapset-card {
+    --border-cover-opacity: 0;
+    --global-beatmap-link-pointer-events: none;
+    --info-bg: linear-gradient(90deg, rgba(22, 22, 24, 0.94) 0%, rgba(22, 22, 24, 0.85) 60%, rgba(22, 22, 24, 0.65) 100%);
+    --main-height: 116px;
+    --menu-bg: var(--bg-soft, #1c1c1f);
+    --menu-container-width: 0px;
+    --menu-opacity: 0;
+    --panel-height: 116px;
+    --progress: 0;
+    --play-bg: transparent;
+    --play-icon-opacity: 0;
+    --play-width: 96px;
+    --source-display: flex;
+    --stats-opacity: 0.9;
+    --transition: all 180ms ease-in-out;
+
     position: relative;
     display: flex;
     align-items: stretch;
-    gap: 0;
-    min-height: 104px;
-    padding: 0;
-    overflow: hidden;
-    background: var(--bg-panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text);
-    transition: border-color 0.12s ease-out, transform 0.12s ease-out;
+    background-color: var(--bg-panel, #161618);
+    border: none;
+    border-radius: 10px;
+    font-size: 12px;
+    height: var(--panel-height);
+    min-height: var(--panel-height);
+    min-width: 0;
+    overflow: visible;
+    transform: translateZ(0);
+    transition: box-shadow 0.15s ease-out, transform 0.15s ease-out;
+    user-select: none;
+    font-family: inherit;
+    color: var(--text, #f2f2f3);
 }
 
-.mapset-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-1px);
-    text-decoration: none;
-}
-
-.mapset-card-cover {
-    position: absolute;
-    inset: 0;
-    background-size: cover;
-    background-position: center;
-    opacity: 0.28;
-    filter: blur(1px);
-}
-
-/* The gradient keeps the title readable no matter how bright the artwork is. */
+/* Dedicated top-layer outline framing the card above all inner content */
+.beatmapset-panel::after,
 .mapset-card::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, rgba(14, 14, 16, 0.94) 40%, rgba(14, 14, 16, 0.6));
+    border-radius: 10px;
+    border: 1px solid var(--border, #26262a);
+    pointer-events: none;
+    z-index: 20;
+    transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 
-.mapset-card-thumb,
-.mapset-card-body {
+@media (max-width: 860px) {
+
+    .beatmapset-panel,
+    .mapset-card {
+        --panel-height: 130px;
+        --main-height: 130px;
+        --play-width: 85px;
+    }
+}
+
+.beatmapset-panel:hover,
+.mapset-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    z-index: 30;
+    --info-bg: linear-gradient(90deg, rgba(28, 28, 31, 0.96) 0%, rgba(28, 28, 31, 0.88) 60%, rgba(28, 28, 31, 0.72) 100%);
+    --menu-opacity: 1;
+    --menu-container-width: 34px;
+    --play-bg: rgba(14, 14, 16, 0.82);
+    --play-icon-opacity: 1;
+    --stats-opacity: 1;
+}
+
+.beatmapset-panel:hover::after,
+.mapset-card:hover::after {
+    border-color: var(--accent, #ff4d8d);
+}
+
+.beatmapset-panel.is-playing,
+.beatmapset-panel.is-loading,
+.mapset-card.is-playing,
+.mapset-card.is-loading {
+    --play-bg: rgba(14, 14, 16, 0.88);
+    --play-icon-opacity: 1;
+}
+
+/* While popup is open, card connects seamlessly with popup below */
+.beatmapset-panel.popup-visible,
+.mapset-card.popup-visible {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    z-index: 45;
+}
+
+.beatmapset-panel.popup-visible::after,
+.mapset-card.popup-visible::after {
+    border-bottom-color: transparent !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-color: var(--accent, #ff4d8d);
+}
+
+/* Flat seam strip concealing card bottom border when popup is open */
+.beatmapset-panel:before,
+.mapset-card:before {
+    content: "";
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    bottom: -1px;
+    height: 4px;
+    background-color: var(--bg-panel, #161618);
+    opacity: var(--border-cover-opacity);
+    transition: opacity 150ms ease-out;
+    pointer-events: none;
+    z-index: 22;
+}
+
+.beatmapset-panel.popup-visible:before,
+.mapset-card.popup-visible:before {
+    --border-cover-opacity: 1;
+}
+
+/* -------------------------------------------------- Background covers */
+
+.beatmapset-panel__cover-container {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    height: 100%;
+    width: 100%;
+    border-radius: 9px;
+    overflow: hidden;
+    pointer-events: auto;
+    text-decoration: none;
+    z-index: 0;
+}
+
+.beatmapset-panel__cover-col {
     position: relative;
+    height: 100%;
+}
+
+.beatmapset-panel__cover-col--play {
+    flex: 0 0 calc(var(--play-width) + 10px);
+}
+
+.beatmapset-panel__cover-col--info {
+    flex: 1;
+    min-width: 0;
+}
+
+.beatmapset-cover--full {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: var(--bg-soft, #1c1c1f);
+}
+
+/* Fallback gradient if cover image fails to load */
+.beatmapset-cover:not([style*="url"]) {
+    background: linear-gradient(135deg, var(--bg-soft, #1c1c1f), var(--bg-alt, #131315));
+}
+
+/* -------------------------------------------------- Card content overlay */
+
+.beatmapset-panel__content {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    pointer-events: none;
     z-index: 1;
 }
 
-.mapset-card-thumb {
-    position: relative;
-    flex: 0 0 104px;
-    background: var(--bg-soft);
+.beatmapset-panel.popup-visible .beatmapset-panel__content,
+.mapset-card.popup-visible .beatmapset-panel__content {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
 }
 
-.mapset-card-thumb img,
-.mapset-thumb-empty {
+/* -------------------------------------------------- Left: Play container */
+
+.beatmapset-panel__play-container {
+    position: relative;
+    flex: 0 0 var(--play-width);
+    height: 100%;
+    background-color: var(--play-bg);
+    border-radius: 9px 0 0 9px;
+    transition: background-color 150ms ease-in-out;
+    pointer-events: auto;
+}
+
+/* The iconic curved cutout fillets on top and bottom right of the play container */
+.beatmapset-panel__play-container:before,
+.beatmapset-panel__play-container:after {
+    content: "";
+    position: absolute;
+    left: 100%;
+    width: 10px;
+    height: 10px;
+    background-color: inherit;
+    pointer-events: none;
+    transition: background-color 150ms ease-in-out;
+}
+
+.beatmapset-panel__play-container:before {
+    top: 0;
+    clip-path: path("M-1 -1 L-1 10 L0 10 A10 10 0 0 1 10 0 L10 -1 Z");
+}
+
+.beatmapset-panel__play-container:after {
+    bottom: 0;
+    clip-path: path("M-1 11 L-1 0 L0 0 A10 10 0 0 0 10 10 L10 11 Z");
+}
+
+/* Play button centered */
+.beatmapset-panel__play {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    display: block;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: #fff;
+    cursor: pointer;
+    outline: none;
+    opacity: var(--play-icon-opacity);
+    transition: opacity 150ms ease-in-out, transform 0.1s ease;
+    z-index: 2;
 }
 
-.mapset-thumb-empty {
-    background: linear-gradient(135deg, var(--bg-soft), var(--bg-alt));
+.beatmapset-panel__play:hover {
+    color: var(--accent, #ff4d8d);
+    transform: scale(1.08);
 }
 
-.mapset-card-video {
+.play-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    font-size: 14px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.beatmapset-panel__play:hover .play-button {
+    background: rgba(0, 0, 0, 0.75);
+}
+
+/* Circular audio playback progress */
+.beatmapset-panel__play-progress {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.circular-progress {
+    width: 44px;
+    height: 44px;
+    transform: rotate(-90deg);
+}
+
+.circular-progress__fill {
+    color: var(--accent, #ff4d8d);
+    transition: stroke-dasharray 0.1s linear;
+}
+
+/* Top left badges (e.g. video) */
+.beatmapset-panel__play-icons {
     position: absolute;
     top: 6px;
     left: 6px;
     display: flex;
+    gap: 4px;
+    z-index: 2;
+}
+
+.beatmapset-panel__play-icon {
+    display: flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: var(--radius-sm);
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius-sm, 4px);
     background: rgba(0, 0, 0, 0.65);
-    color: var(--text);
-    font-size: 0.6rem;
+    color: var(--text, #f2f2f3);
+    font-size: 10px;
 }
 
-.mapset-card-body {
+/* -------------------------------------------------- Middle: Info Area */
+
+/* -------------------------------------------------- Middle: Info Area */
+
+.beatmapset-panel__info {
+    position: relative;
     flex: 1 1 auto;
     min-width: 0;
-    padding: 14px 18px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 9px 14px 10px 16px;
+    background: var(--info-bg);
+    border-radius: 9px 0 0 9px;
+    transition: background 150ms ease-in-out;
 }
 
-.mapset-card-title {
-    font-size: 1rem;
+.beatmapset-panel__info-row {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+/* Title row */
+.beatmapset-panel__info-row--title {
+    align-items: center;
+    gap: 8px;
+    font-size: 1.05rem;
     font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.2;
+    margin: 0;
 }
 
-.mapset-card-artist {
-    color: var(--text);
-    font-size: 0.85rem;
-    opacity: 0.8;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.beatmapset-panel__main-link {
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+    text-decoration: none;
+    pointer-events: auto;
 }
 
-.mapset-card-mapper {
-    margin-top: 2px;
-    color: var(--muted);
-    font-size: 0.78rem;
+.beatmapset-panel__main-link:hover {
+    text-decoration: underline;
+    color: #fff;
 }
 
-.mapset-card-mapper span {
-    color: var(--accent-soft);
+.u-ellipsis-overflow {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
 }
 
-.mapset-card-foot {
+/* Badges (NSFW, Featured, etc.) */
+.beatmapset-panel__badge-container {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 8px;
-    flex-wrap: wrap;
+    gap: 4px;
+    flex-shrink: 0;
 }
 
-.mapset-card-count {
-    color: var(--muted);
-    font-size: 0.75rem;
-}
-
-.mapset-card-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 6px;
-    color: var(--muted);
-    font-size: 0.75rem;
-}
-
-/* ------------------------------------------------------------ status pill */
-
-/*
- * The status is the one label a player scans for, so it keeps the shape of a
- * pill everywhere: in the listing, and larger on the beatmap page. Ranked and
- * approved are the site accent; the rest stay neutral, because a graveyard set
- * announcing itself in colour would be noise.
- */
-.status-pill {
+.beatmapset-badge {
     display: inline-block;
-    padding: 2px 10px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-soft);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-size: 0.68rem;
+    padding: 2px 7px;
+    border-radius: 10000px;
+    font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
+    line-height: 1;
 }
 
-/* On the beatmap page the pill runs the width of the column, the way the
-   status banner does on the game's own page. */
+.beatmapset-badge--nsfw {
+    background-color: #ff5252;
+    color: #fff;
+}
+
+.beatmapset-badge--featured_artist {
+    background-color: #38bdf8;
+    color: #0b1120;
+}
+
+/* Artist row - tight to Title */
+.beatmapset-panel__info-row--artist {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--text, #f2f2f3);
+    opacity: 0.88;
+    line-height: 1.2;
+    margin-top: 1px;
+    margin-bottom: 0;
+}
+
+/* Source row */
+.beatmapset-panel__info-row--source {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted, #a1a1a6);
+    line-height: 1.2;
+    margin-top: 1px;
+    margin-bottom: 0;
+}
+
+/* Mapper row - tight to Artist */
+.beatmapset-panel__info-row--mapper {
+    font-size: 0.76rem;
+    color: var(--muted, #a1a1a6);
+    line-height: 1.2;
+    margin-top: 1px;
+    margin-bottom: 0;
+}
+
+.beatmapset-panel__mapper-link {
+    color: var(--accent-soft, #ff7fae);
+    font-weight: 600;
+    text-decoration: none;
+    pointer-events: auto;
+}
+
+.beatmapset-panel__mapper-link:hover {
+    text-decoration: underline;
+    color: var(--accent, #ff4d8d);
+}
+
+/* Stats row - small spacing under mapper */
+.beatmapset-panel__info-row--stats {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 0.72rem;
+    color: var(--muted, #a1a1a6);
+    line-height: 1.2;
+    opacity: var(--stats-opacity);
+    transition: opacity 150ms ease-in-out;
+    margin-top: 5px;
+    margin-bottom: 0;
+}
+
+.beatmapset-panel__stats-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.beatmapset-panel__stats-item-icon {
+    font-size: 0.7rem;
+    color: var(--muted, #a1a1a6);
+}
+
+/* Extra row: Status pill, Mode icon, Difficulty dots - anchored to bottom with safe breathing room */
+.beatmapset-panel__info-row--extra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 4px;
+    text-decoration: none;
+    pointer-events: auto;
+}
+
+.beatmapset-panel__extra-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.beatmapset-panel__extra-item--dots {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    overflow: hidden;
+    max-width: 100%;
+}
+
+/* Status Pill in official osu! panel style */
+.beatmapset-status--panel,
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 19px;
+    padding: 0 9px;
+    border-radius: var(--radius-sm, 4px);
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    line-height: 19px;
+    white-space: nowrap;
+}
+
+.status-ranked,
+.status-approved {
+    background: #88b300;
+    color: #fff;
+}
+
+.status-loved {
+    background: var(--accent, #ff4d8d);
+    color: #fff;
+}
+
+.status-qualified {
+    background: #4fc0ff;
+    color: #14090e;
+}
+
+.status-pending,
+.status-work-in-progress,
+.status-wip {
+    background: #ea0;
+    color: #14090e;
+}
+
+.status-graveyard {
+    background: #36363a;
+    color: #a1a1a6;
+}
+
+/* Status pill large for beatmap page */
 .status-pill-large {
     padding: 6px 18px;
     font-size: 0.78rem;
     text-align: center;
 }
 
-.status-ranked,
-.status-approved {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-}
-
-.status-loved {
-    background: rgba(255, 77, 141, 0.16);
-    border-color: var(--accent-dark);
-    color: var(--accent-soft);
-}
-
-.status-qualified {
-    background: rgba(79, 192, 255, 0.14);
-    border-color: #2f6d8f;
-    color: #7fd0ff;
-}
-
-/* --------------------------------------------------------- difficulty dots */
-
-.diff-dots {
+/* Game mode icons */
+.beatmapset-panel__beatmap-icon {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    justify-content: center;
+    margin-right: 6px;
+    color: var(--muted, #a1a1a6);
+    flex-shrink: 0;
 }
 
+.mode-icon-glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+}
+
+.mode-icon-glyph svg {
+    width: 100%;
+    height: 100%;
+}
+
+.mode-icon-small {
+    width: 13px;
+    height: 13px;
+}
+
+/* Difficulty dots (vertical capsules) */
+.beatmapset-panel__beatmap-dot,
 .diff-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 999px;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+    width: 6px;
+    height: 13px;
+    border-radius: 10000px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+    transition: transform 0.12s ease;
+}
+
+.beatmapset-panel:hover .beatmapset-panel__beatmap-dot:hover {
+    transform: scaleY(1.25);
 }
 
 .diff-dots-more {
-    color: var(--muted);
-    font-size: 0.7rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--muted, #a1a1a6);
     margin-left: 2px;
+}
+
+/* -------------------------------------------------- Right: Slide-out menu */
+
+.beatmapset-panel__menu-container {
+    position: relative;
+    flex: 0 0 var(--menu-container-width);
+    height: 100%;
+    background-color: var(--menu-bg);
+    border-radius: 0 9px 9px 0;
+    overflow: hidden;
+    transition: var(--transition);
+    pointer-events: auto;
+}
+
+.beatmapset-panel__menu-container:before,
+.beatmapset-panel__menu-container:after {
+    content: "";
+    position: absolute;
+    right: 100%;
+    width: 10px;
+    height: 10px;
+    background-color: inherit;
+    pointer-events: none;
+    transition: background-color 150ms ease-in-out;
+}
+
+.beatmapset-panel__menu-container:before {
+    top: 0;
+    clip-path: path("M11 -1 L11 10 L10 10 A10 10 0 0 0 0 0 L0 -1 Z");
+}
+
+.beatmapset-panel__menu-container:after {
+    bottom: 0;
+    clip-path: path("M11 11 L11 0 L10 0 A10 10 0 0 1 0 10 L 0 11 Z");
+}
+
+.beatmapset-panel__menu {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    width: 100%;
+    height: 100%;
+    opacity: var(--menu-opacity);
+    transition: opacity 150ms ease-in-out;
+    padding: 6px 0;
+}
+
+.beatmapset-panel__menu-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: none;
+    border: none;
+    color: var(--muted, #a1a1a6);
+    font-size: 14px;
+    cursor: pointer;
+    text-decoration: none;
+    border-radius: var(--radius-sm, 4px);
+    transition: color 0.12s ease, background 0.12s ease;
+}
+
+.beatmapset-panel__menu-item:hover {
+    color: var(--accent, #ff4d8d);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* -------------------------------------------------- Hover popup (difficulties) */
+
+.beatmaps-popup,
+.mapset-card-diffs {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background-color: var(--bg-panel, #161618);
+    background-image: linear-gradient(90deg, rgba(22, 22, 24, 0.98) 0%, rgba(22, 22, 24, 0.94) 100%);
+    border: 1px solid var(--accent, #ff4d8d);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+    padding: 10px 14px 14px;
+    pointer-events: auto;
+    animation: popupFade 0.15s ease-out;
+}
+
+@keyframes popupFade {
+    from {
+        opacity: 0;
+        transform: translateY(-2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.beatmaps-popup__content {
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.beatmaps-popup__group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.beatmaps-popup-item {
+    display: block;
+    color: var(--text, #f2f2f3);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm, 6px);
+    transition: background-color 0.12s ease, transform 0.1s ease;
+}
+
+.beatmaps-popup-item:hover {
+    background: var(--bg-soft, #1c1c1f);
+    text-decoration: none;
+    transform: translateX(3px);
+}
+
+.beatmaps-popup-item:hover .beatmap-list-item__version {
+    text-decoration: underline;
+    color: #fff;
+}
+
+.beatmap-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.85rem;
+    min-width: 0;
+}
+
+.beatmap-list-item__col--icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--muted, #a1a1a6);
+    width: 16px;
+}
+
+.difficulty-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 68px;
+    height: 22px;
+    padding: 0 10px;
+    border-radius: 10000px;
+    color: rgba(0, 0, 0, 0.88);
+    font-weight: 700;
+    font-size: 0.74rem;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+}
+
+.difficulty-badge__icon {
+    font-size: 0.72rem;
+    line-height: 1;
+}
+
+.difficulty-badge__rating {
+    line-height: 1;
+    font-family: inherit;
+}
+
+.beatmap-list-item__col--main {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.beatmap-list-item__version {
+    color: var(--text, #f2f2f3);
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    transition: color 0.12s ease;
+}
+
+/* Fancy scrollbar helper */
+.u-fancy-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+.u-fancy-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    background-color: transparent;
+}
+
+.u-fancy-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.25);
+    border-radius: 10px;
+}
+
+.u-fancy-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.4);
 }
 
 /* ============================================================ beatmap page */
@@ -669,7 +1265,7 @@
     margin: 0;
 }
 
-.diff-facts > div {
+.diff-facts>div {
     display: flex;
     justify-content: space-between;
     gap: 16px;
@@ -678,7 +1274,7 @@
     font-size: 0.85rem;
 }
 
-.diff-facts > div:last-child {
+.diff-facts>div:last-child {
     border-bottom: none;
 }
 

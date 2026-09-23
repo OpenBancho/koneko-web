@@ -1,3 +1,15 @@
+/*
+ * Torus is loaded from the cdnfonts stylesheet in layout.html. That sheet
+ * declares weights 250-900 but skips 500, which several rules below ask
+ * for, so it is mapped onto the SemiBold file here.
+ */
+@font-face {
+    font-family: "Torus";
+    font-weight: 500;
+    font-display: swap;
+    src: url("https://fonts.cdnfonts.com/s/51361/TorusSemiBold.d263d500.woff") format("woff");
+}
+
 :root {
     /*
      * Neutral surfaces, one accent. The old palette tinted every surface
@@ -46,7 +58,7 @@ body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: "Torus", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     line-height: 1.5;
 }
 
@@ -1231,7 +1243,7 @@ form input:focus {
    ========================================================================== */
 
 body {
-    font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: "Torus", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: var(--bg);
     letter-spacing: 0.01em;
 }

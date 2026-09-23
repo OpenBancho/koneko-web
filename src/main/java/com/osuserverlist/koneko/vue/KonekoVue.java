@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -24,6 +25,10 @@ import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.osuserverlist.koneko.auth.Auth;
+import com.osuserverlist.koneko.auth.UserSession;
+import com.osuserverlist.koneko.routes.AdminRoutes;
 
 import io.javalin.http.Context;
 import io.javalin.http.Handler;
@@ -36,17 +41,15 @@ import io.javalin.http.Handler;
  *
  * <ul>
  *   <li>{@code layout.html} is the single HTML shell of the site;</li>
- *   <li>{@code @componentRegistration} is replaced by every {@code .vue} file
- *       found under {@code /vue}, so a new component is a new file and nothing
- *       else;</li>
+ *   <li>{@code @componentRegistration} is replaced by the relevant {@code .vue} components:
+ *       shared components for all pages, the active page view, and staff/admin components
+ *       only for authenticated staff members;</li>
  *   <li>{@code @routeComponent} is replaced by the component of the route being
  *       served, which is what makes one route one line.</li>
  * </ul>
  *
- * <p>In production everything is read from the classpath once and cached, so a
- * page render is two string replacements. In development ({@code LEVEL=DEV})
- * the files are re-read from {@code src/main/resources/vue} on every request,
- * so editing a component only needs a refresh.
+ * <p>In production everything is read from the classpath once and cached. In development ({@code LEVEL=DEV})
+ * the files are re-read from {@code src/main/resources/vue} on every request.
  */
 public final class KonekoVue {
 
@@ -56,16 +59,15 @@ public final class KonekoVue {
     private static final Path DEV_ROOT = Paths.get("src", "main", "resources", "vue");
 
     private static final String LAYOUT = "layout.html";
-    // The markers are matched as whole lines. A marker name that appears
-    // inside a comment must never be substituted: the injected components
-    // carry their own </script>, so a replacement inside the layout script
-    // block would close it early and dump the rest of the file as text.
     private static final Pattern COMPONENT_MARKER = marker("@componentRegistration");
     private static final Pattern ROUTE_MARKER = marker("@routeComponent");
-    // The two plugin markers. They are optional: a layout without them still
-    // renders, plugins simply cannot inject html into the shell.
     private static final Pattern PLUGIN_HEAD_MARKER = marker("@pluginHead");
     private static final Pattern PLUGIN_BODY_MARKER = marker("@pluginBody");
+
+    private static final Pattern HTML_COMMENT = Pattern.compile("<!--[\\s\\S]*?-->");
+    private static final Pattern BLOCK_COMMENT = Pattern.compile("/\\*[\\s\\S]*?\\*/");
+    private static final Pattern LINE_COMMENT = Pattern.compile("(?m)^[ \\t]*//.*$");
+    private static final Pattern MULTI_NEWLINES = Pattern.compile("\\n{3,}");
 
     private static Pattern marker(String name) {
         return Pattern.compile("^[ \\t]*" + Pattern.quote(name) + "[ \\t]*$", Pattern.MULTILINE);
@@ -74,7 +76,10 @@ public final class KonekoVue {
     private static boolean devMode;
 
     private static volatile String cachedLayout;
-    private static volatile String cachedComponents;
+    private static volatile String cachedPublicShared;
+    private static volatile String cachedAdminShared;
+    private static volatile String cachedAdminViews;
+    private static final Map<String, String> cachedViews = new ConcurrentHashMap<>();
 
     // Filled by the plugin host at boot. They stay null when no plugin is
     // loaded, which keeps a plugin-free site byte for byte what it was.
@@ -93,7 +98,10 @@ public final class KonekoVue {
     public static void configure(boolean dev) {
         devMode = dev;
         cachedLayout = null;
-        cachedComponents = null;
+        cachedPublicShared = null;
+        cachedAdminShared = null;
+        cachedAdminViews = null;
+        cachedViews.clear();
     }
 
     /**
@@ -125,9 +133,8 @@ public final class KonekoVue {
     }
 
     private static void render(Context ctx, String component, int status) throws IOException {
-        // Plugin components go after the core ones, so a plugin component may
-        // use any core component and can never replace one.
-        String html = replace(layout(), COMPONENT_MARKER, components() + fromPlugin(pluginComponents));
+        String componentsContent = components(ctx, component);
+        String html = replace(layout(), COMPONENT_MARKER, componentsContent + fromPlugin(pluginComponents));
         html = replace(html, ROUTE_MARKER, "<" + component + "></" + component + ">");
         html = replace(html, PLUGIN_HEAD_MARKER, fromPlugin(pluginHead));
         html = replace(html, PLUGIN_BODY_MARKER, fromPlugin(pluginBodyEnd));
@@ -137,6 +144,9 @@ public final class KonekoVue {
         if (hook != null) {
             hook.accept(ctx, component);
         }
+
+        html = HTML_COMMENT.matcher(html).replaceAll("");
+        html = MULTI_NEWLINES.matcher(html).replaceAll("\n\n");
 
         ctx.status(status);
         ctx.contentType("text/html; charset=utf-8");
@@ -209,28 +219,160 @@ public final class KonekoVue {
                 + " Write it as \\u003c/script> instead.", file, line);
     }
 
-    private static String components() throws IOException {
-        String cached = cachedComponents;
-
-        if (cached != null && !devMode) {
-            return cached;
-        }
+    private static String components(Context ctx, String component) throws IOException {
+        UserSession session = Auth.current(ctx);
+        boolean isStaff = AdminRoutes.isStaff(session);
 
         StringBuilder builder = new StringBuilder();
 
-        for (String file : componentFiles()) {
-            String source = readFile(file);
+        // 1. Shared UI components (site-nav, site-footer, mapset-card, etc.)
+        builder.append(publicSharedComponents());
 
-            warnAboutEarlyScriptEnd(file, source);
-
-            builder.append("<!-- ").append(file).append(" -->\n");
-            builder.append(source).append('\n');
+        // 2. Staff components & views:
+        // Admin components (admin-shell, admin-action-dialog) and admin subviews are
+        // served ONLY to authenticated staff accounts on admin routes.
+        if (isStaff && component != null && component.startsWith("admin-")) {
+            builder.append(adminSharedComponents());
+            builder.append(adminViews());
+        } else if (component != null) {
+            // For ordinary routes, serve ONLY the single view required by the active page.
+            // Other pages (e.g. reset-password, verify, admin) are never leaked into the page.
+            String viewContent = viewComponent(component);
+            if (viewContent != null) {
+                builder.append(viewContent);
+            }
         }
 
-        String components = builder.toString();
+        return builder.toString();
+    }
 
-        cachedComponents = components;
-        return components;
+    private static boolean isAdminFile(String file) {
+        return file.startsWith("components/admin-") || file.startsWith("views/admin-")
+                || file.contains("/admin-") || file.startsWith("admin-");
+    }
+
+    private static boolean isViewFile(String file) {
+        return file.startsWith("views/") || file.contains("/views/");
+    }
+
+    private static String publicSharedComponents() throws IOException {
+        if (!devMode && cachedPublicShared != null) {
+            return cachedPublicShared;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (String file : componentFiles()) {
+            if (!isViewFile(file) && !isAdminFile(file)) {
+                appendFile(builder, file);
+            }
+        }
+
+        String result = builder.toString();
+        if (!devMode) {
+            cachedPublicShared = result;
+        }
+        return result;
+    }
+
+    private static String adminSharedComponents() throws IOException {
+        if (!devMode && cachedAdminShared != null) {
+            return cachedAdminShared;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (String file : componentFiles()) {
+            if (!isViewFile(file) && isAdminFile(file)) {
+                appendFile(builder, file);
+            }
+        }
+
+        String result = builder.toString();
+        if (!devMode) {
+            cachedAdminShared = result;
+        }
+        return result;
+    }
+
+    private static String adminViews() throws IOException {
+        if (!devMode && cachedAdminViews != null) {
+            return cachedAdminViews;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (String file : componentFiles()) {
+            if (isViewFile(file) && isAdminFile(file)) {
+                appendFile(builder, file);
+            }
+        }
+
+        String result = builder.toString();
+        if (!devMode) {
+            cachedAdminViews = result;
+        }
+        return result;
+    }
+
+    private static String viewComponent(String componentName) throws IOException {
+        if (!devMode && cachedViews.containsKey(componentName)) {
+            return cachedViews.get(componentName);
+        }
+
+        String targetFile = null;
+        for (String file : componentFiles()) {
+            if (isViewFile(file)) {
+                String name = extractComponentName(file);
+                if (componentName.equals(name)) {
+                    targetFile = file;
+                    break;
+                }
+            }
+        }
+
+        if (targetFile == null) {
+            for (String file : componentFiles()) {
+                if (extractComponentName(file).equals(componentName)) {
+                    targetFile = file;
+                    break;
+                }
+            }
+        }
+
+        if (targetFile == null) {
+            return null;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        appendFile(builder, targetFile);
+        String result = builder.toString();
+
+        if (!devMode) {
+            cachedViews.put(componentName, result);
+        }
+        return result;
+    }
+
+    private static String extractComponentName(String file) {
+        int slash = file.lastIndexOf('/');
+        int dot = file.lastIndexOf('.');
+        int start = (slash >= 0) ? slash + 1 : 0;
+        int end = (dot > start) ? dot : file.length();
+        return file.substring(start, end);
+    }
+
+    private static String stripComments(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        String stripped = HTML_COMMENT.matcher(text).replaceAll("");
+        stripped = BLOCK_COMMENT.matcher(stripped).replaceAll("");
+        stripped = LINE_COMMENT.matcher(stripped).replaceAll("");
+        return MULTI_NEWLINES.matcher(stripped).replaceAll("\n\n");
+    }
+
+    private static void appendFile(StringBuilder builder, String file) throws IOException {
+        String source = readFile(file);
+        warnAboutEarlyScriptEnd(file, source);
+        builder.append(stripComments(source)).append('\n');
     }
 
     /** Every .vue file under the vue root, as paths relative to that root. */

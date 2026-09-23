@@ -4,44 +4,30 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>koneko</title>
-    <!--
-        flag-icons ships one SVG per country and addresses them with a
-        class, so flags look the same on every system instead of relying
-        on the emoji font, which Windows does not have.
-
-        The integrity hash is what makes a third-party stylesheet on this
-        origin acceptable: a version tag pins which release was asked for,
-        not what the CDN answers with. The browser drops the file if the
-        bytes ever stop matching. Hash verified against the flag-icons
-        7.2.3 tarball on registry.npmjs.org; recompute it when the version
-        changes, or the stylesheet stops loading.
-    -->
+    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css"
         integrity="sha384-aQuvIWWIbpu/mSqULLDiUveyYiPoJzPKAWjUmGJ+Elm+N/LJhzfZqsutsfw870JS"
         crossorigin="anonymous">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <!-- The query is bumped whenever koneko.css changes so browsers cannot keep
-         serving a stale stylesheet out of their disk cache. -->
-    <link rel="stylesheet" href="/css/koneko.css?v=theme-sandbox-1">
+    
+    <link rel="preconnect" href="https://fonts.cdnfonts.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.cdnfonts.com/css/torus"
+        integrity="sha384-e63PxU+bF69fxq4IOqAiqfEE+pVdhdmzPznvU+9nLWvx6JESH/MwQc1IoJJ4rn6D"
+        crossorigin="anonymous">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+        integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer">
+    
+    <link rel="stylesheet" href="/css/koneko.css?v=torus-font-1">
 
-    <!-- The beatmap listing and the beatmap page bring their own layout. It is
-         loaded after koneko.css on purpose: a handful of its rules restate an
-         earlier selector and have to win on order. -->
-    <link rel="stylesheet" href="/css/beatmaps.css?v=beatmaps-layout-1">
+    <link rel="stylesheet" href="/css/beatmaps.css?v=beatmaps-diffopen-8">
 
-    <!-- The front page panels, the restriction strip, and the Markdown pages. -->
     <link rel="stylesheet" href="/css/home-panels.css?v=home-panels-13">
 
-
-    <!-- Stylesheets and head html contributed by .jar plugins. -->
 @pluginHead
 </head>
 <body>
 
-<!-- Keyboard users get past the navigation without tabbing through it. -->
 <a class="skip-link" href="#koneko-app">Skip to content</a>
 
 <main id="koneko-app" tabindex="-1" v-cloak>
@@ -49,43 +35,23 @@
     @routeComponent
 </main>
 
-<!--
-    The page state is served as a normal blocking script, so the site texts and
-    the logged in user are on the page before Vue runs. See DataRoutes.
--->
 <script src="/data/bootstrap.js"></script>
 
-<!--
-    Vue runs on this origin with the visitor's session, so it is the most
-    privileged script on the page - it can reach every form and call the API
-    as whoever is logged in. The integrity hash is therefore not optional
-    hardening: @3.5.13 pins the version that was asked for, and the hash pins
-    the bytes that come back. Without it, a compromised or misdirected CDN
-    answer executes with full privileges and nothing here would notice.
-
-    Hash verified against the vue 3.5.13 tarball on registry.npmjs.org.
-    Recompute it when the version changes, or the page stops loading Vue:
-        openssl dgst -sha384 -binary vue.global.prod.js | openssl base64 -A
--->
 <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"
     integrity="sha384-W/1Fp/LgAYO/oTn9Gs+PbeWuMuq1eQCnUMPCeg8POmMYchhzxctjEqtbiCIxDOON"
     crossorigin="anonymous"></script>
 
 <script>
-    // The app has to exist before the components are registered: every
-    // component inlined below registers itself on this exact variable.
+
     const koneko = window.__koneko || { site: {}, user: null, domain: "" };
 
     const app = Vue.createApp({});
 
     app.config.globalProperties.$koneko = koneko;
 
-    // Formatting helpers every component needs, kept in one place.
     app.mixin({
         methods: {
-            // FastLoad, browser side: the last answer of a page is kept in
-            // localStorage, painted immediately on the next visit and then
-            // replaced by the fresh one. Only public page data goes in here.
+
             fastKey(key) {
                 return "koneko:fast:" + key;
             },
@@ -124,22 +90,14 @@
                         body: body
                     }));
                 } catch (e) {
-                    // A full or blocked storage is not worth a broken page.
+
                 }
             },
-            // The bancho.jar API is reachable under /api/v1 on this very
-            // origin, so public page data is fetched from it directly instead
-            // of going browser -> koneko-web -> API. One hop, no CORS, and no
-            // token involved: none of these endpoints need one.
+
             apiBase() {
                 return String(koneko.apiBase || "/api/v1").replace(/\/+$/, "");
             },
-            /**
-             * GETs one API endpoint and returns the parsed body.
-             *
-             * Empty, null and undefined parameters are dropped, so callers can
-             * hand over their whole state without filtering it first.
-             */
+            
             async api(endpoint, params) {
                 const query = new URLSearchParams();
 
@@ -155,8 +113,7 @@
 
                 const response = await fetch(this.apiBase() + "/" + endpoint + suffix, {
                     headers: { "Accept": "application/json" },
-                    // The API is a different service behind the same host and
-                    // has no use for the frontend session cookie.
+
                     credentials: "omit"
                 });
 
@@ -168,9 +125,7 @@
 
                 return await response.json();
             },
-            // The same call, but a failure gives null instead of throwing: a
-            // secondary section of a page should grey out on its own rather
-            // than take the whole page down.
+
             async apiQuietly(endpoint, params) {
                 try {
                     return await this.api(endpoint, params);
@@ -178,17 +133,7 @@
                     return null;
                 }
             },
-            /**
-             * A player endpoint, asked through this service rather than
-             * straight from the API.
-             *
-             * A profile is the one kind of page data that does not answer
-             * everybody the same: a restricted account is a 404 to players and
-             * an ordinary profile to staff, and only the access token in the
-             * session here can tell the API which of the two is asking. So the
-             * cookie is sent, this service adds the token, and the answer is
-             * the API's own body and status.
-             */
+            
             async playerApi(endpoint, params) {
                 const query = new URLSearchParams();
 
@@ -215,7 +160,7 @@
 
                 return await response.json();
             },
-            // The same call, with a failure giving null instead of throwing.
+
             async playerApiQuietly(endpoint, params) {
                 try {
                     return await this.playerApi(endpoint, params);
@@ -223,15 +168,7 @@
                     return null;
                 }
             },
-            /**
-             * A call to this service instead of the API: the account routes,
-             * which need the access token that lives in the session here. The
-             * cookie is sent, the token is never seen by the browser, and the
-             * answer is the API's own body.
-             *
-             * Throws with .status and .message set to what the API said, so a
-             * form can print "wrong password" instead of a status code.
-             */
+            
             async session(method, path, body) {
                 const response = await fetch(path, {
                     method: method,
@@ -260,8 +197,7 @@
 
                 return answer;
             },
-            // The player of a profile url: a numeric segment is an id,
-            // anything else a name, the way the API expects it.
+
             apiWho(identifier) {
                 const value = String(identifier === null || identifier === undefined
                     ? "" : identifier);
@@ -277,11 +213,10 @@
             },
             fmtAccuracy(value) {
                 if (value === null || value === undefined) return "-";
-                // The API stores accuracy as a fraction of 1.
+
                 return (Number(value) * 100).toFixed(2) + "%";
             },
-            // Shared beatmap helpers: every page that shows a map needs the
-            // same status names, mode names, lengths and cover urls.
+
             statusName(status) {
                 const names = {
                     "-2": "graveyard",
@@ -309,18 +244,14 @@
 
                 return minutes + ":" + String(rest).padStart(2, "0");
             },
-            // osu! hosts the set banners. Sets submitted here have none, so
-            // every image falls back to a plain gradient on error.
+
             coverUrl(setId, size) {
                 if (!setId) return "";
 
                 return "https://assets.ppy.sh/beatmaps/" + setId + "/covers/"
                     + (size || "card") + "@2x.jpg";
             },
-            // The flag-icons classes for a country code. The flag itself
-            // is a background image, so the element carrying these classes
-            // stays empty. An unknown code gives no class at all, which
-            // leaves an empty box rather than a wrong flag.
+
             flagClass(code) {
                 if (!code) return "";
 
@@ -330,8 +261,7 @@
 
                 return "fi fi-" + value;
             },
-            // The inline colours of a group badge, built from its six digit
-            // hex colour. Anything malformed falls back to grey.
+
             groupStyle(group) {
                 const raw = String((group && group.colour) || "");
                 const colour = /^[0-9a-fA-F]{6}$/.test(raw) ? raw : "8a8a8a";
@@ -342,7 +272,7 @@
                     backgroundColor: "#" + colour + "1f"
                 };
             },
-            // Profile helpers.
+
             fmtRank(value) {
                 if (value === null || value === undefined) return "-";
                 return "#" + Number(value).toLocaleString();
@@ -356,8 +286,6 @@
                 const hours = Math.floor((total % 86400) / 3600);
                 const minutes = Math.floor((total % 3600) / 60);
 
-                // The two largest units that are not zero, the way the
-                // client puts it: "14 days 22 minutes".
                 const parts = [];
 
                 if (days) parts.push(days + (days === 1 ? " day" : " days"));
@@ -368,8 +296,7 @@
 
                 return parts.slice(0, 2).join(" ") || "0 minutes";
             },
-            // The mod bits the client sends, minus the ones implied by
-            // another mod, so NC does not show up next to DT.
+
             fmtMods(mods) {
                 const value = Number(mods);
 
@@ -391,7 +318,7 @@
 
                 for (const [bit, name] of table) {
                     if ((value & bit) === 0) continue;
-                    // NC always carries DT, PF always carries SD.
+
                     if (name === "DT" && (value & 512)) continue;
                     if (name === "SD" && (value & 16384)) continue;
 
@@ -400,7 +327,7 @@
 
                 return names;
             },
-            // Unix seconds, milliseconds and date strings all end up here.
+
             asDate(value) {
                 if (value === null || value === undefined || value === "") return null;
 
@@ -408,7 +335,7 @@
                     const number = Number(value);
 
                     if (!number) return null;
-                    // Anything this small has to be seconds, not millis.
+
                     return new Date(number < 100000000000 ? number * 1000 : number);
                 }
 
@@ -450,13 +377,10 @@
 </script>
 
 <script>
-    // The plugin side of the front end. Everything a plugin contributed to a
-    // page arrives in koneko.plugins, so no component has to fetch anything to
-    // know what is loaded.
+
     app.mixin({
         methods: {
-            // A state key contributed by a plugin, e.g.
-            // $options ... this.pluginData("tournaments", "upcoming").
+
             pluginData(pluginId, key, fallback) {
                 const data = (koneko.plugins && koneko.plugins.data) || {};
                 const own = data[pluginId] || {};
@@ -464,23 +388,21 @@
 
                 return value === undefined ? (fallback === undefined ? null : fallback) : value;
             },
-            // The url of a file a plugin ships in its jar.
+
             pluginAsset(pluginId, path) {
                 return "/plugin-assets/" + pluginId + (path.startsWith("/") ? path : "/" + path);
             },
-            // The url of one of a plugin's own endpoints.
+
             pluginAction(pluginId, path) {
                 return "/plugins/" + pluginId + (path.startsWith("/") ? path : "/" + path);
             },
-            // The navigation entries plugins added, already filtered by the
-            // server to what this visitor may see.
+
             pluginNav(placement) {
                 const items = (koneko.plugins && koneko.plugins.nav) || [];
 
                 return placement === "footer" ? items.filter(item => item.footer) : items;
             },
-            // Ids of the navigation entries plugins asked to hide, core ones
-            // included. See registry.hideNavItem(id).
+
             pluginNavHidden() {
                 return (koneko.plugins && koneko.plugins.navHidden) || [];
             },
@@ -492,14 +414,10 @@
         }
     });
 
-    // A slot: every component plugins registered for this name, in the order
-    // they asked for. Unknown slots simply render nothing, so a page may open
-    // as many as it likes.
     app.component("koneko-slot", {
         props: {
             name: { type: String, required: true },
-            // Whatever the surrounding page knows: the player on a profile, the
-            // set on a beatmap page. Handed to every component as slotContext.
+
             context: { type: Object, default: null }
         },
         computed: {
@@ -521,7 +439,6 @@
     app.mount("#koneko-app");
 </script>
 
-<!-- Scripts and body html contributed by .jar plugins. -->
 @pluginBody
 
 </body>
