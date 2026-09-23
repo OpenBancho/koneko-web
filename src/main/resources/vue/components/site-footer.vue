@@ -76,6 +76,7 @@
                 return [
                     { id: "footer.leaderboard", label: "Leaderboard", href: "/leaderboard", group: "site", order: 10 },
                     { id: "footer.beatmaps", label: "Beatmaps", href: "/beatmaps", group: "site", order: 20 },
+                    { id: "footer.connect", label: "How to connect", href: "/connect", group: "site", order: 25 },
                     { id: "footer.discord", label: "Discord", href: this.links.discord, group: "community", order: 10, external: true },
                     { id: "footer.github", label: "GitHub", href: this.links.github, group: "community", order: 20, external: true },
                     { id: "footer.api", label: "API", href: this.links.apiDocs, group: "developers", order: 10, external: true }

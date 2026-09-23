@@ -47,6 +47,7 @@ public final class VueState {
                 session.getUsername(), session.getPrivileges(), null);
 
         state.put("plugins", PluginBootstrap.state(ctx, user));
+        state.put("theme", com.osuserverlist.koneko.theme.ThemeService.getPublicBootstrap());
 
         // Last, so a plugin may still add or replace a top level key.
         if (PluginService.enabled()) {

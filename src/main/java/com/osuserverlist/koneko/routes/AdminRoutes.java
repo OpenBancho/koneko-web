@@ -1,7 +1,10 @@
 package com.osuserverlist.koneko.routes;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+
+import com.osuserverlist.koneko.theme.ThemeService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +50,17 @@ public final class AdminRoutes {
 
     private static final int STAFF_MASK = NOMINATOR | MODERATOR | ADMINISTRATOR | DEVELOPER;
 
+    /**
+     * Who may change the site's theme.
+     *
+     * <p>Narrower than {@link #STAFF_MASK} on purpose, and the one place in this file where the
+     * coarse gate is not enough. Every other route here forwards to the API, which decides for
+     * itself what the caller's token may do; the theme routes have no API behind them, so this
+     * is the only check there is. Activating a theme changes what every visitor's browser
+     * loads, which is not something a beatmap nominator's bit should reach.
+     */
+    private static final int THEME_MASK = ADMINISTRATOR | DEVELOPER;
+
     /** What the panel may read, and where it comes from. */
     private static final Map<String, String> READS = Map.of(
             "access", "/api/v1/admin/access",
@@ -90,6 +104,15 @@ public final class AdminRoutes {
     }
 
     public static void register(JavalinConfig config) {
+        // Themes. Registered before the {action} routes below, which would otherwise
+        // swallow these paths.
+        config.routes.get("/admin/api/themes", AdminRoutes::getThemes);
+        config.routes.post("/admin/api/themes/fetch", AdminRoutes::fetchThemes);
+        config.routes.post("/admin/api/themes/select", AdminRoutes::selectTheme);
+        config.routes.post("/admin/api/themes/import", AdminRoutes::importTheme);
+        config.routes.post("/admin/api/themes/settings", AdminRoutes::saveThemeSettings);
+        config.routes.post("/admin/api/themes/reset", AdminRoutes::resetTheme);
+
         config.routes.get("/admin/api/{action}", AdminRoutes::read);
         config.routes.post("/admin/api/{action}", AdminRoutes::write);
         // The gate itself, which is the one thing here that works before the gate is open.
@@ -105,6 +128,11 @@ public final class AdminRoutes {
      */
     public static boolean isStaff(UserSession session) {
         return session != null && (session.getPrivileges() & STAFF_MASK) != 0;
+    }
+
+    /** Whether an account may read or change the site theme. */
+    public static boolean mayManageThemes(UserSession session) {
+        return session != null && (session.getPrivileges() & THEME_MASK) != 0;
     }
 
     private static void read(Context ctx) {
@@ -257,6 +285,191 @@ public final class AdminRoutes {
 
     private static void deny(Context ctx) {
         ctx.status(403).json(Map.of("status", "This page is for staff."));
+    }
+
+    /**
+     * The gate in front of the theme routes.
+     *
+     * <p>Returns the session rather than a boolean, because every caller needs the username for
+     * the audit line afterwards and re-reading it would be a second chance to get it wrong.
+     *
+     * @return the session, or null when an answer has already been sent
+     */
+    private static UserSession themeSession(Context ctx) {
+        UserSession session = Auth.current(ctx);
+
+        if (!mayManageThemes(session)) {
+            // Same answer whether the caller is a player or a nominator: what the site looks
+            // like is not information either of them needs about the other.
+            ctx.status(403).json(Map.of("status",
+                    "Themes can only be managed by an administrator or a developer."));
+            return null;
+        }
+
+        if (Verification.blocksApi(ctx, session) || StaffTwoFactor.blocksApi(ctx, session)) {
+            return null;
+        }
+
+        return session;
+    }
+
+    private static void getThemes(Context ctx) {
+        if (themeSession(ctx) == null) {
+            return;
+        }
+
+        ctx.header("Cache-Control", "private, no-store");
+        ctx.json(ThemeService.getAdminState());
+    }
+
+    private static void fetchThemes(Context ctx) {
+        UserSession session = themeSession(ctx);
+
+        if (session == null) {
+            return;
+        }
+
+        try {
+            String url = MAPPER.readTree(ctx.body()).path("url").asText(null);
+            List<Map<String, Object>> themes = ThemeService.fetchThemes(url);
+
+            Map<String, Object> answer = new LinkedHashMap<>();
+            answer.put("status", "success");
+            answer.put("themes", themes);
+            answer.put("state", ThemeService.getAdminState());
+
+            ctx.header("Cache-Control", "private, no-store");
+            ctx.json(answer);
+        } catch (IllegalArgumentException e) {
+            // The URL is one this deployment refuses. The message names the rule, because a
+            // staff member cannot fix an allowlist they cannot see.
+            ctx.status(400).json(Map.of("status", e.getMessage()));
+        } catch (Exception e) {
+            // The source itself failed. Recorded so the panel still explains it after a
+            // reload, and logged with the cause rather than reduced to its message.
+            String reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+
+            ThemeService.recordError(reason);
+            logger.warn("Staff <{}> could not fetch themes: {}", session.getUsername(), reason, e);
+            ctx.status(502).json(Map.of("status", "The theme source could not be read: " + reason));
+        }
+    }
+
+    private static void selectTheme(Context ctx) {
+        UserSession session = themeSession(ctx);
+
+        if (session == null) {
+            return;
+        }
+
+        try {
+            JsonNode body = MAPPER.readTree(ctx.body());
+            String themeId = body.path("id").asText("");
+
+            // The consent travels in the request and is read here. Keeping it in the panel
+            // would make it a checkbox that only stops somebody who uses the panel.
+            boolean jsConsent = body.path("jsConsent").asBoolean(false);
+
+            Map<String, Object> theme = ThemeService.activateTheme(themeId, jsConsent,
+                    session.getUsername());
+
+            answerWithTheme(ctx, theme);
+        } catch (IllegalArgumentException e) {
+            ctx.status(400).json(Map.of("status", e.getMessage()));
+        } catch (Exception e) {
+            logger.warn("Staff <{}> could not activate a theme", session.getUsername(), e);
+            ctx.status(500).json(Map.of("status", "The theme could not be activated."));
+        }
+    }
+
+    /**
+     * Applies a theme pasted into the panel.
+     *
+     * <p>Its own route rather than a {@code data} field on {@code select}, which is what let
+     * the previous version activate an arbitrary payload through the path meant for choosing
+     * one from the fetched list.
+     */
+    private static void importTheme(Context ctx) {
+        UserSession session = themeSession(ctx);
+
+        if (session == null) {
+            return;
+        }
+
+        try {
+            JsonNode body = MAPPER.readTree(ctx.body());
+            JsonNode theme = body.path("theme");
+
+            if (!theme.isObject()) {
+                ctx.status(400).json(Map.of("status", "A theme object is required."));
+                return;
+            }
+
+            Map<String, Object> parsed = MAPPER.convertValue(theme,
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+
+            answerWithTheme(ctx, ThemeService.activateDirect(parsed,
+                    body.path("jsConsent").asBoolean(false), session.getUsername()));
+        } catch (IllegalArgumentException e) {
+            ctx.status(400).json(Map.of("status", e.getMessage()));
+        } catch (Exception e) {
+            logger.warn("Staff <{}> could not import a theme", session.getUsername(), e);
+            ctx.status(400).json(Map.of("status", "That theme could not be imported."));
+        }
+    }
+
+    private static void saveThemeSettings(Context ctx) {
+        UserSession session = themeSession(ctx);
+
+        if (session == null) {
+            return;
+        }
+
+        try {
+            JsonNode body = MAPPER.readTree(ctx.body());
+
+            ThemeService.updateSettings(
+                    body.path("sourceUrl").asText(null),
+                    body.has("enabled") ? body.path("enabled").asBoolean() : null,
+                    session.getUsername());
+
+            answerWithState(ctx);
+        } catch (IllegalArgumentException e) {
+            ctx.status(400).json(Map.of("status", e.getMessage()));
+        } catch (Exception e) {
+            logger.warn("Staff <{}> could not save theme settings", session.getUsername(), e);
+            ctx.status(400).json(Map.of("status", "Those settings could not be saved."));
+        }
+    }
+
+    private static void resetTheme(Context ctx) {
+        UserSession session = themeSession(ctx);
+
+        if (session == null) {
+            return;
+        }
+
+        ThemeService.deactivateTheme(session.getUsername());
+        answerWithState(ctx);
+    }
+
+    private static void answerWithTheme(Context ctx, Map<String, Object> theme) {
+        Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("status", "success");
+        answer.put("theme", theme);
+        answer.put("state", ThemeService.getAdminState());
+
+        ctx.header("Cache-Control", "private, no-store");
+        ctx.json(answer);
+    }
+
+    private static void answerWithState(Context ctx) {
+        Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("status", "success");
+        answer.put("state", ThemeService.getAdminState());
+
+        ctx.header("Cache-Control", "private, no-store");
+        ctx.json(answer);
     }
 
     /**

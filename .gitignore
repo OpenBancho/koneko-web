@@ -2,8 +2,7 @@
 .env
 .env.local
 .env.*.local
-.config/config.yml
-.config/plugins/
+.config/
 nginx/*.local.conf
 
 # ---- build output ----

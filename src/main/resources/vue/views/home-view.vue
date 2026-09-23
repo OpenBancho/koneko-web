@@ -12,7 +12,10 @@
                target="_blank" rel="noopener">here!</a>
         </div>
 
-        <section class="hero-band" :style="heroStyle">
+        <section class="hero-band" :class="{ 'has-video-bg': isHeroVideo }" :style="heroStyle">
+            <video v-if="isHeroVideo" class="hero-video-bg" autoplay loop muted playsinline>
+                <source :src="heroVideoSrc" type="video/mp4">
+            </video>
             <div class="hero-inner">
                 <div class="hero-logo">
                     <img v-if="home.logoImage" :src="home.logoImage" :alt="site.name">
@@ -27,9 +30,7 @@
                     <a class="button" v-if="!user" href="/login">Log in and play</a>
                     <a class="button" v-else :href="'/u/' + user.id">My profile</a>
 
-                    <a class="button button-ghost" v-if="home.showConnectGuide" href="#connect">Set up the game</a>
-                    <a class="button button-ghost" v-else-if="links.discord"
-                       :href="links.discord" target="_blank" rel="noopener">Join the Discord</a>
+                    <a class="button button-ghost" href="/connect">How to connect</a>
                 </div>
             </div>
         </section>
@@ -54,7 +55,7 @@
         </section>
 
         <section class="tiles">
-            <a class="tile" :href="home.showConnectGuide ? '#connect' : '/login'">
+            <a class="tile" href="/connect">
                 <span class="tile-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
                         <path d="M8 5l11 7-11 7z" stroke-linejoin="round"></path>
@@ -166,19 +167,7 @@
             </div>
         </section>
 
-        <section class="card" id="connect" v-if="home.showConnectGuide">
-            <h2>How to connect</h2>
-
-            <p class="hero-description">{{ site.description }}</p>
-
-            <ol class="guide">
-                <li>Create an account with <code>!register</code> in game, or ask on the Discord.</li>
-                <li>Start osu! with <code>osu!.exe -devserver {{ domain }}</code>.</li>
-                <li>Log in with your {{ site.name }} username and password.</li>
-            </ol>
-        </section>
-
-        <section class="card" v-else>
+        <section class="card">
             <h2>About {{ site.name }}</h2>
             <p class="hero-description">{{ site.description }}</p>
         </section>
@@ -223,9 +212,18 @@
                 return name.split(/\s+/).slice(0, 2)
                     .map(word => word.charAt(0).toUpperCase()).join("");
             },
+            isHeroVideo() {
+                const src = this.home.heroVideo || this.home.heroImage;
+                if (!src) return false;
+                return /\.mp4(\?.*)?$/i.test(src) || src === '/logo.mp4';
+            },
+            heroVideoSrc() {
+                return this.home.heroVideo || this.home.heroImage || '/logo.mp4';
+            },
             // The band keeps its gradient when no image is configured, so the
             // front page looks finished out of the box.
             heroStyle() {
+                if (this.isHeroVideo) return {};
                 const image = this.home.heroImage;
 
                 return image ? { backgroundImage: "url('" + image + "')" } : {};

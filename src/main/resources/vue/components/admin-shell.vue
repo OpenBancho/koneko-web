@@ -63,6 +63,7 @@
 
                 const all = [
                     { id: "overview", label: "Overview", href: "/admin" },
+                    { id: "themes", label: "Event Themes", href: "/admin/themes" },
                     { id: "requests", label: "Requests", href: "/admin/requests" },
                     { id: "moderation", label: "Moderation", href: "/admin/moderation" },
                     { id: "logs", label: "Logs", href: "/admin/logs" },
@@ -71,8 +72,20 @@
                 ];
 
                 // Overview is always there so the panel is never an empty frame.
+                //
+                // Themes is the one entry the API does not describe, because the theme
+                // engine belongs to the website rather than to bancho.jar. It follows the
+                // roles the API does report, so the rule still comes from one place, and
+                // /admin/api/themes checks the privileges again regardless.
                 return all.filter(item => item.id === "overview"
+                    || (item.id === "themes" && this.mayManageThemes)
                     || sections.indexOf(item.id) !== -1);
+            },
+
+            mayManageThemes() {
+                const roles = (this.access.roles || []).map(role => String(role).toLowerCase());
+
+                return roles.indexOf("administrator") !== -1 || roles.indexOf("developer") !== -1;
             }
         },
         methods: {

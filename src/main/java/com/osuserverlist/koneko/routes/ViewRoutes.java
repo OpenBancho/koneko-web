@@ -48,6 +48,8 @@ public final class ViewRoutes {
 
         config.routes.get("/u/{identifier}", profilePage());
         config.routes.get("/leaderboard", page("leaderboard-view"));
+        config.routes.get("/connect", page("connect-view"));
+        config.routes.get("/how-to-connect", ctx -> ctx.redirect("/connect"));
         // Open to everybody, including an account that is restricted: it is
         // the page that explains what a restriction is.
         config.routes.get("/restrictions", KonekoVue.component("restrictions-view"));
@@ -118,6 +120,9 @@ public final class ViewRoutes {
         Handler panel = staffPage("admin-panel-view");
 
         config.routes.get("/admin", panel);
+        // Narrower than the rest: the theme engine has no API behind it to authorise the
+        // call a second time, so the page is gated on the same bits the routes are.
+        config.routes.get("/admin/themes", themePage());
         config.routes.get("/admin/requests", panel);
         config.routes.get("/admin/moderation", panel);
         config.routes.get("/admin/moderation/{userId}", panel);
@@ -280,6 +285,29 @@ public final class ViewRoutes {
             // The staff bits say who this account is; the code says it is really them at this
             // browser. The panel wants both.
             if (StaffTwoFactor.blocksPage(ctx, session)) {
+                return;
+            }
+
+            page.handle(ctx);
+        };
+    }
+
+    /**
+     * The themes page, for administrators and developers only.
+     *
+     * <p>Wraps the ordinary staff page and adds the narrower check on top, so a moderator or a
+     * nominator who types the address goes back to the panel rather than reaching a page whose
+     * every button would answer 403.
+     */
+    private static Handler themePage() {
+        Handler page = staffPage("admin-panel-view");
+
+        return ctx -> {
+            UserSession session = Auth.current(ctx);
+
+            if (session != null && AdminRoutes.isStaff(session)
+                    && !AdminRoutes.mayManageThemes(session)) {
+                ctx.redirect("/admin");
                 return;
             }
 

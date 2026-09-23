@@ -136,6 +136,7 @@
                 return [
                     { id: "leaderboard", label: "Leaderboard", href: "/leaderboard", order: 10 },
                     { id: "beatmaps", label: "Beatmaps", href: "/beatmaps", order: 20 },
+                    { id: "connect", label: "How to connect", href: "/connect", order: 25 },
                     { id: "community", label: "Community", href: this.links.discord, order: 30, external: true },
                     { id: "api", label: "API", href: this.links.apiDocs, order: 40, external: true }
                 ];
