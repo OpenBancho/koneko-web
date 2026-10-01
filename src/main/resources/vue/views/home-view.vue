@@ -239,7 +239,7 @@
                 return "https://a." + this.$koneko.domain + "/a/" + id;
             },
             scoreMods(score) {
-                return this.fmtMods(score.mods);
+                return this.fmtMods(score.mods, score.lazer_score);
             },
             // Both panels answer with the standard paginated envelope.
             rowsOf(body) {

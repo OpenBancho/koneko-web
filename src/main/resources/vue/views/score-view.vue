@@ -270,7 +270,7 @@
                 return { backgroundImage: 'url("' + this.coverUrl(setId, "cover") + '")' };
             },
             mods() {
-                return this.fmtMods(this.score && this.score.mods);
+                return this.fmtMods(this.score && this.score.mods, this.score && this.score.lazer_score);
             },
             gradeClass() {
                 return String((this.score && this.score.grade) || "f")

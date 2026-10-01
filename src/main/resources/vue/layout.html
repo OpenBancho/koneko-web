@@ -296,11 +296,13 @@
 
                 return parts.slice(0, 2).join(" ") || "0 minutes";
             },
-
-            fmtMods(mods) {
+            // The mod bits the client sends, minus the ones implied by
+            // another mod, so NC does not show up next to DT.
+            // When lazerScore is 0 (or absent), the score was set on osu!stable
+            // and gets the Classic (CL) mod prepended — matching official osu! behaviour.
+            fmtMods(mods, lazerScore) {
                 const value = Number(mods);
-
-                if (!value) return [];
+                const isStable = !lazerScore || Number(lazerScore) === 0;
 
                 const table = [
                     [1, "NF"], [2, "EZ"], [4, "TD"], [8, "HD"], [16, "HR"],
@@ -314,15 +316,17 @@
                     [536870912, "V2"], [1073741824, "MR"]
                 ];
 
-                const names = [];
+                const names = isStable ? ["CL"] : [];
 
-                for (const [bit, name] of table) {
-                    if ((value & bit) === 0) continue;
+                if (value) {
+                    for (const [bit, name] of table) {
+                        if ((value & bit) === 0) continue;
+                        // NC always carries DT, PF always carries SD.
+                        if (name === "DT" && (value & 512)) continue;
+                        if (name === "SD" && (value & 16384)) continue;
 
-                    if (name === "DT" && (value & 512)) continue;
-                    if (name === "SD" && (value & 16384)) continue;
-
-                    names.push(name);
+                        names.push(name);
+                    }
                 }
 
                 return names;

@@ -79,7 +79,7 @@
                 return grade.replace("+", "plus");
             },
             mods() {
-                return this.fmtMods(this.score.mods);
+                return this.fmtMods(this.score.mods, this.score.lazer_score);
             },
             weightFactor() {
                 if (this.index === null || this.index === undefined) return null;

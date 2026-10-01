@@ -79,7 +79,7 @@
                     </td>
                     <td>
                         <span class="score-grade-cell" :class="'grade-' + gradeClass(score)">{{ score.grade }}</span>
-                        <span class="mods" v-if="fmtMods(score.mods).length">{{ fmtMods(score.mods).join(", ") }}</span>
+                        <span class="mods" v-if="fmtMods(score.mods, score.lazer_score).length">{{ fmtMods(score.mods, score.lazer_score).join(", ") }}</span>
                     </td>
                     <td class="numeric">{{ fmtDecimal(score.pp, 0) }}</td>
                     <td class="muted">{{ fmtRelative(score.play_time) }}</td>
