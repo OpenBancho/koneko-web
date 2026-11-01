@@ -70,7 +70,10 @@ public final class AdminRoutes {
             "requests", "/api/v1/admin/requests",
             "system", "/api/v1/admin/system",
             "groups", "/api/v1/admin/groups",
-            "group-members", "/api/v1/admin/groups/members");
+            "group-members", "/api/v1/admin/groups/members",
+            // The anti-cheat, asked through the game server: what it says about a player, and who this server vouches for.
+            "anticheat-status", "/api/v1/admin/anticheat/status",
+            "anticheat-vouches", "/api/v1/admin/anticheat/vouches");
 
     /**
      * What the panel may do, and where it goes.
@@ -98,7 +101,10 @@ public final class AdminRoutes {
             Map.entry("requests-resolve", "/api/v1/admin/requests/resolve"),
             // Groups: the page writes through one endpoint, membership through another.
             Map.entry("groups", "/api/v1/admin/groups"),
-            Map.entry("group-members", "/api/v1/admin/groups/members"));
+            Map.entry("group-members", "/api/v1/admin/groups/members"),
+            // Vouching for a player the anti-cheat flagged, and ending that vouch again.
+            Map.entry("anticheat-vouch", "/api/v1/admin/anticheat/vouch"),
+            Map.entry("anticheat-vouch-revoke", "/api/v1/admin/anticheat/vouch/revoke"));
 
     private AdminRoutes() {
     }

@@ -3935,6 +3935,76 @@ body {
     margin-top: 16px;
 }
 
+/* A declaration the person must read before the action (vouching for a player). Meant to be impossible to miss: red,
+   large, first in the dialog, with the answer to type below it. */
+.admin-dialog.is-wide {
+    max-width: 600px;
+}
+
+.admin-dialog-notice {
+    margin: 14px 0 6px;
+    padding: 16px 18px 18px;
+    border: 2px solid #ff4d4d;
+    border-radius: var(--radius-md, 8px);
+    background: linear-gradient(180deg, rgba(255, 77, 77, 0.22), rgba(255, 77, 77, 0.08));
+    box-shadow: 0 0 0 4px rgba(255, 77, 77, 0.14);
+}
+
+.admin-dialog-notice-badge {
+    display: inline-block;
+    padding: 3px 11px;
+    border-radius: 999px;
+    background: #ff4d4d;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+}
+
+.admin-dialog-notice-title {
+    margin: 10px 0 10px;
+    font-size: 1.3rem;
+    line-height: 1.25;
+    color: #fff;
+}
+
+.admin-dialog-notice-list {
+    display: grid;
+    gap: 11px;
+    margin: 0;
+    padding-left: 24px;
+    font-size: 15px;
+    font-weight: 650;
+    line-height: 1.45;
+    color: #fff;
+}
+
+.admin-dialog-notice-list li::marker {
+    color: #ff6b6b;
+    font-weight: 800;
+}
+
+.admin-dialog-notice-note {
+    margin: 14px 0 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: #ffd0d0;
+}
+
+/* The field that has to be answered with a given word. */
+.admin-dialog-field.is-expect .field-label {
+    font-size: 14px;
+    font-weight: 800;
+    color: #ff8a8a;
+}
+
+.admin-dialog-field.is-expect .filter-input {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    border: 2px solid #ff4d4d;
+}
+
 /* ----- staff panel: switching sections ----- */
 
 /*

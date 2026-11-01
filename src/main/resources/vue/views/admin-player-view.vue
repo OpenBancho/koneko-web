@@ -10,6 +10,13 @@
         </section>
 
         <template v-else>
+            <!-- Shown after lifting a restriction that the anti-cheat still enforces: the lift went through, but the
+                 player's scores are still not accepted, and this says what to do about it. -->
+            <section class="card" v-if="notice">
+                <p class="small">{{ notice }}</p>
+                <button class="button button-small button-ghost" @click="notice = ''">Dismiss</button>
+            </section>
+
             <section class="card admin-profile">
                 <img class="admin-profile-avatar" :src="avatar" :alt="player.name">
 
@@ -130,6 +137,59 @@
                 </div>
             </section>
 
+            <!-- What the anti-cheat says about this account. Only shown to staff who may vouch: the anti-cheat flags a
+                 player on its own, and lifting a restriction here does not bring the player's scores back while it is active. -->
+            <section class="card" v-if="can('vouch') && anticheat">
+                <h3>Anti-cheat</h3>
+
+                <p class="muted" v-if="anticheat.configured === false">
+                    The anti-cheat is not configured on this server.
+                </p>
+
+                <p class="admin-dialog-error" v-else-if="anticheat.error">{{ anticheat.error }}</p>
+
+                <template v-else>
+                    <p class="admin-action-row">
+                        <span class="admin-badge is-bad" v-if="anticheat.restricted && !anticheat.vouchable">
+                            restricted by OpenWatcher (confirmed)
+                        </span>
+                        <span class="admin-badge is-warn" v-else-if="anticheat.restricted">
+                            flagged by an automatic rule
+                        </span>
+                        <span class="admin-badge is-good" v-else>no restriction from the anti-cheat</span>
+
+                        <span class="admin-badge is-good" v-if="anticheat.vouched">vouched for by this server</span>
+                    </p>
+
+                    <p class="small" v-if="anticheat.restricted && !anticheat.vouchable">
+                        This restriction is confirmed by OpenWatcher, so it cannot be vouched for. The player has to
+                        contact OpenWatcher support. Lifting the restriction on this server does not let them submit scores.
+                    </p>
+
+                    <p class="small" v-else-if="anticheat.restricted && !anticheat.vouched">
+                        An automatic rule flagged this player and their scores are not accepted. If you have looked at
+                        their play and trust them, you can vouch for them on this server. The anti-cheat still checks their
+                        game client on every score, and any new detection ends the vouch.
+                    </p>
+
+                    <p class="small" v-if="anticheat.vouched && anticheat.vouch">
+                        <strong>{{ anticheat.vouch.issued_by }}</strong> vouched
+                        {{ fmtRelative(anticheat.vouch.issued_at) }}: {{ anticheat.vouch.reason }}
+                    </p>
+
+                    <div class="admin-action-row">
+                        <button class="button button-small" v-if="anticheat.vouchable && !anticheat.vouched"
+                            @click="act('anticheat-vouch')">Vouch for this player</button>
+                        <button class="button button-small button-ghost" v-if="anticheat.vouched"
+                            @click="act('anticheat-vouch-revoke')">End the vouch</button>
+                    </div>
+
+                    <p class="muted small" v-if="anticheat.vouch_slots">
+                        {{ anticheat.vouch_slots.used }} of {{ anticheat.vouch_slots.max }} vouches in use on this server.
+                    </p>
+                </template>
+            </section>
+
             <!-- Play history sits above the action log on purpose: how much someone
                  has actually played is the context that decides whether a
                  restriction is proportionate. -->
@@ -193,6 +253,7 @@
         <admin-action-dialog :open="!!dialog"
             :title="dialog ? dialog.title : ''"
             :text="dialog ? dialog.text || '' : ''"
+            :notice="dialog ? dialog.notice || null : null"
             :fields="dialog ? dialog.fields : []"
             :confirm-label="dialog ? dialog.confirm : 'Confirm'"
             :danger="dialog ? !!dialog.danger : false"
@@ -235,6 +296,10 @@
             // second list is only fetched when the caller may change membership.
             groups: [],
             allGroups: [],
+            // What the anti-cheat says about the account (null until asked), and the note shown after lifting a
+            // restriction that it still enforces.
+            anticheat: null,
+            notice: "",
             dialog: null,
             dialogBusy: false,
             dialogError: "",
@@ -252,6 +317,7 @@
         methods: {
             actionClass(action) {
                 if (["restrict", "wipe"].indexOf(action) !== -1) return "is-bad";
+                if (action === "vouch" || action === "vouch_revoke") return "is-good";
                 if (["silence", "privileges", "name"].indexOf(action) !== -1) return "is-warn";
                 if (["unrestrict", "unsilence", "supporter"].indexOf(action) !== -1) return "is-good";
 
@@ -272,6 +338,14 @@
 
                     this.setTitle(this.player.name || "Player");
 
+                    if (this.can("vouch")) {
+                        try {
+                            this.anticheat = await this.session("GET", "/admin/api/anticheat-status?user_id=" + this.userId);
+                        } catch (e) {
+                            this.anticheat = { error: e.message || "The anti-cheat could not be asked." };
+                        }
+                    }
+
                     // The groups dialog needs every group that exists, not only
                     // the account's own. Fetched with the page rather than on
                     // click, so the dialog opens instantly.
@@ -290,6 +364,13 @@
                 }
             },
             act(action) {
+                // Vouching is only possible with the terms in front of the person: no terms, no vouch.
+                if (action === "anticheat-vouch" && !(this.anticheat && this.anticheat.terms && this.anticheat.terms.items)) {
+                    this.notice = "The anti-cheat did not send the terms of vouching, so vouching is not possible right now. "
+                        + "The anti-cheat server probably needs to be updated.";
+                    return;
+                }
+
                 this.dialogError = "";
                 this.dialog = Object.assign({ action: action }, this.spec(action));
             },
@@ -340,6 +421,47 @@
                     return {
                         title: "Unrestrict " + who,
                         confirm: "Unrestrict",
+                        fields: [reason(false)]
+                    };
+                }
+
+                if (action === "anticheat-vouch") {
+                    // The terms come from the anti-cheat, which also checks that they were accepted: this dialog only shows them
+                    // and asks for the word. (act() has already made sure they are here.)
+                    const terms = this.anticheat.terms;
+
+                    return {
+                        title: "Vouch for " + who,
+                        text: "This server tells the anti-cheat that it trusts this player. Their scores are accepted again here "
+                            + "(only here), the game client is still checked on every score, and any new detection ends the vouch.",
+                        notice: { title: terms.title, items: terms.items, note: terms.note },
+                        confirm: "I accept, vouch",
+                        danger: true,
+                        fields: [
+                            {
+                                key: "reason",
+                                label: "Why do you trust them?",
+                                type: "textarea",
+                                required: true,
+                                hint: "At least 5 characters. Kept in the staff history and shown to OpenWatcher."
+                            },
+                            {
+                                key: "agreement",
+                                label: "Type " + terms.confirm_word + " to accept everything above",
+                                placeholder: terms.confirm_word,
+                                required: true,
+                                expect: terms.confirm_word,
+                                hint: "Your name, this answer and the version of these terms are recorded with the vouch."
+                            }
+                        ]
+                    };
+                }
+
+                if (action === "anticheat-vouch-revoke") {
+                    return {
+                        title: "End the vouch for " + who,
+                        confirm: "End the vouch",
+                        danger: true,
                         fields: [reason(false)]
                     };
                 }
@@ -522,6 +644,11 @@
 
                 const body = Object.assign({ user_id: this.userId }, values);
 
+                // Which version of the terms the person was shown: the anti-cheat refuses a vouch made on an older text.
+                if (this.dialog.action === "anticheat-vouch") {
+                    body.terms_version = Number(this.anticheat.terms.version) || 0;
+                }
+
                 if (body.mode !== undefined) body.mode = Number(body.mode);
                 if (body.expires_in_hours !== undefined) {
                     body.expires_in_hours = Number(body.expires_in_hours);
@@ -544,6 +671,11 @@
                         : await this.session("POST", "/admin/api/" + action, body);
 
                     this.dialog = null;
+
+                    // Lifting a restriction the anti-cheat still enforces is allowed, but the staff member is told what it means.
+                    if (action === "unrestrict" && answer && answer.body && answer.body.notice) {
+                        this.notice = answer.body.notice;
+                    }
 
                     // A reset link is the one action whose answer matters to the person who
                     // asked for it, so it is kept and shown instead of being thrown away.

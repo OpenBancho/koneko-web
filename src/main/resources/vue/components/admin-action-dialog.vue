@@ -1,11 +1,22 @@
 <template id="admin-action-dialog">
     <div class="admin-dialog-backdrop" v-if="open" @click.self="cancel">
-        <section class="admin-dialog" role="dialog" aria-modal="true" :aria-label="title">
+        <section class="admin-dialog" :class="notice ? 'is-wide' : ''" role="dialog" aria-modal="true" :aria-label="title">
             <h3 class="admin-dialog-title">{{ title }}</h3>
             <p class="admin-dialog-text" v-if="text">{{ text }}</p>
 
+            <!-- A declaration the person has to read and accept. Deliberately loud: it is red, large and above everything
+                 else, because "I did not read it" must not be possible. Accepting it is a field with `expect` below. -->
+            <div class="admin-dialog-notice" v-if="notice" role="alert">
+                <span class="admin-dialog-notice-badge">IMPORTANT</span>
+                <h4 class="admin-dialog-notice-title">{{ notice.title }}</h4>
+                <ol class="admin-dialog-notice-list">
+                    <li v-for="(item, index) in notice.items" :key="index">{{ item }}</li>
+                </ol>
+                <p class="admin-dialog-notice-note" v-if="notice.note">{{ notice.note }}</p>
+            </div>
+
             <div class="admin-dialog-fields" v-if="fields.length">
-                <div class="admin-dialog-field" v-for="field in fields" :key="field.key">
+                <div class="admin-dialog-field" :class="field.expect ? 'is-expect' : ''" v-for="field in fields" :key="field.key">
                     <span class="field-label">{{ field.label }}</span>
 
                     <!-- Anything with a fixed set of answers is picked, never
@@ -44,8 +55,9 @@
                 <button class="button button-ghost button-small" type="button"
                     :disabled="busy" @click="cancel">Cancel</button>
 
+                <!-- Locked until every field that has to be answered with a given word has been. -->
                 <button class="button button-small" :class="danger ? 'button-danger' : ''"
-                    type="button" :disabled="busy" @click="submit">
+                    type="button" :disabled="busy || waiting" @click="submit">
                     {{ busy ? "Working\u2026" : confirmLabel }}
                 </button>
             </div>
@@ -73,6 +85,8 @@
             title: { type: String, default: "" },
             text: { type: String, default: "" },
             fields: { type: Array, default: () => [] },
+            /** { title, items: [string], note } - shown first and loudly; see the template. */
+            notice: { type: Object, default: null },
             confirmLabel: { type: String, default: "Confirm" },
             danger: Boolean,
             busy: Boolean,
@@ -84,6 +98,15 @@
             values: {},
             problem: ""
         }),
+        computed: {
+            /**
+             * True while a field that must be answered with an exact word ({@code expect}) has not been. The word is compared
+             * without regard to case or surrounding spaces: what matters is that it was typed, not how.
+             */
+            waiting() {
+                return this.fields.some(field => field.expect && !this.matches(field));
+            }
+        },
         watch: {
             open(isOpen) {
                 if (isOpen) this.reset();
@@ -115,10 +138,23 @@
                 this.values = values;
                 this.problem = "";
             },
+            matches(field) {
+                const typed = String(this.values[field.key] === undefined || this.values[field.key] === null ? "" : this.values[field.key]);
+
+                return typed.trim().toLowerCase() === String(field.expect).trim().toLowerCase();
+            },
             cancel() {
                 if (!this.busy) this.$emit("close");
             },
             submit() {
+                // The button is locked too; this keeps the rule in one place for any other way of reaching submit().
+                const unanswered = this.fields.find(field => field.expect && !this.matches(field));
+
+                if (unanswered) {
+                    this.problem = "Type \"" + unanswered.expect + "\" to accept.";
+                    return;
+                }
+
                 const missing = this.fields.find(field => {
                     if (!field.required) return false;
 
