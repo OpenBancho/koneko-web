@@ -6667,3 +6667,15 @@ body {
 .daily-idle {
     color: var(--muted);
 }
+
+/* .filter-input is `flex: 1 1 260px`, meant for a row: in the column of a labelled field that 260px becomes the
+   height. A field in the daily challenge form keeps its own natural height and a sensible width. */
+.daily-field .filter-input {
+    flex: 0 0 auto;
+    min-width: 0;
+    width: 210px;
+}
+
+.daily-field select.filter-input {
+    width: 170px;
+}
