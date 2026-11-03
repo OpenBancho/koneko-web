@@ -50,6 +50,8 @@ public final class Env {
     private final int port;
     private final String domain;
     private final String apiBaseUrl;
+    /** Base url of lazer.jar (osu!lazer API v2). Empty = lazer features are off. */
+    private final String lazerApiUrl;
     private final String level;
     private final String apiClientId;
 
@@ -87,6 +89,7 @@ public final class Env {
         this.port = intOf(dotenv, "PORT", 8300);
         this.domain = stringOf(dotenv, "DOMAIN", "localhost");
         this.apiBaseUrl = stringOf(dotenv, "API_BASE_URL", "");
+        this.lazerApiUrl = stringOf(dotenv, "LAZER_API_URL", "");
         this.level = stringOf(dotenv, "LEVEL", "PROD");
         this.apiClientId = stringOf(dotenv, "API_CLIENT_ID", "koneko-web");
         this.registrationEnabled = booleanOf(dotenv, "REGISTRATION_ENABLED", true);

@@ -42,7 +42,12 @@ public final class BanchoApi {
     private final String baseUrl;
 
     public BanchoApi(Env env) {
-        this.baseUrl = resolveBaseUrl(env);
+        this(env, resolveBaseUrl(env));
+    }
+
+    /** A client for another autonomous server (lazer.jar) that speaks the same JSON-over-HTTP way. */
+    public BanchoApi(Env env, String baseUrl) {
+        this.baseUrl = stripTrailingSlash(baseUrl.trim());
         this.timeout = Duration.ofSeconds(Env.API_TIMEOUT_SECONDS);
         this.clientId = env.getApiClientId();
 

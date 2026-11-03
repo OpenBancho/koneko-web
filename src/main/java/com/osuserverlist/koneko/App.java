@@ -43,6 +43,9 @@ public final class App {
     /** Client for the bancho.jar public API. */
     public static BanchoApi api;
 
+    /** lazer.jar API v2, or null when LAZER_API_URL is not set. A separate server from {@link #api}. */
+    public static BanchoApi lazer;
+
     private App() {
     }
 
@@ -51,6 +54,10 @@ public final class App {
         site = SiteConfigLoader.load();
         api = new BanchoApi(env);
 
+        if (env.getLazerApiUrl() != null && !env.getLazerApiUrl().isBlank()) {
+            lazer = new BanchoApi(env, env.getLazerApiUrl());
+        }
+
         SessionStore.configure();
         FastCache.configure(env.getFastLoadTtlSeconds(), env.getFastLoadStaleSeconds());
         KonekoVue.configure(env.isDev());
@@ -58,6 +65,11 @@ public final class App {
 
         logger.info("Starting koneko-web for <{}> at <{}>", site.getServer().getName(), env.getDomain());
         logger.info("Using the bancho.jar API at <{}>", api.getBaseUrl());
+        if (lazer == null) {
+            logger.info("lazer.jar is not linked (LAZER_API_URL is empty)");
+        } else {
+            logger.info("Using the lazer.jar API at <{}>", lazer.getBaseUrl());
+        }
 
         if (FastCache.enabled()) {
             logger.info("FastLoad is on: {}s fresh, {}s stale, {}s in the browser",
@@ -97,6 +109,7 @@ public final class App {
             ViewRoutes.register(config);
             AuthRoutes.register(config);
             DataRoutes.register(config);
+            com.osuserverlist.koneko.routes.LazerRoutes.register(config);
 
             // The Markdown documents behind the static text pages.
             DocsRoutes.register(config);

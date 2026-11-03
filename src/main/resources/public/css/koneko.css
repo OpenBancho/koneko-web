@@ -6082,3 +6082,13 @@ body {
 
 
 
+
+/* --- lazer.jar cards on the profile --------------------------------------- */
+
+/* The about-me text is the player's own: keep their line breaks, never let a long word break the card. */
+.lazer-page {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+}

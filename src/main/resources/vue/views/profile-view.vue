@@ -172,9 +172,66 @@
                                 <dt>Played for:</dt>
                                 <dd>{{ fmtPlaytime(stats.playtime) }}</dd>
                             </div>
+                            <!-- From lazer.jar, a server of its own: shown only when it is linked and knows the player. -->
+                            <template v-if="lazer.counts">
+                                <div><dt>Favourite maps:</dt><dd>{{ fmtNumber(lazer.counts.favourites) }}</dd></div>
+                                <div><dt>Ranked maps:</dt><dd>{{ fmtNumber(lazer.counts.ranked) }}</dd></div>
+                                <div><dt>Loved maps:</dt><dd>{{ fmtNumber(lazer.counts.loved) }}</dd></div>
+                            </template>
                         </dl>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <section class="card" v-if="lazer.page">
+            <h2>About me</h2>
+            <!-- Plain text on purpose: the text is written by the player, so it is never injected as HTML. -->
+            <p class="lazer-page">{{ lazer.page }}</p>
+        </section>
+
+        <section class="card" v-if="lazer.pinned.length">
+            <h2>Pinned scores <span class="muted">({{ lazer.pinned.length }})</span></h2>
+
+            <div class="score-row score-clickable" v-for="score in lazer.pinned" :key="score.id"
+                @click="openLazerScore(score)">
+                <div class="score-grade" :class="'grade-' + lazerGrade(score.rank)">{{ score.rank }}</div>
+
+                <div class="score-map">
+                    <div class="score-title">
+                        <a :href="'/beatmapsets/' + score.set_id" @click.stop>
+                            {{ score.artist }} - {{ score.title }}
+                            <span class="muted" v-if="score.version">[{{ score.version }}]</span>
+                        </a>
+                        <span class="mods" v-if="score.mods.length">{{ score.mods.join(", ") }}</span>
+                    </div>
+
+                    <div class="score-meta">
+                        <span>{{ fmtAccuracy(score.accuracy) }}</span>
+                        <span>{{ fmtNumber(score.max_combo) }}x</span>
+                        <span>{{ fmtNumber(score.total_score) }}</span>
+                        <span>{{ fmtRelative(score.ended_at) }}</span>
+                    </div>
+                </div>
+
+                <div class="score-numbers">
+                    <div class="score-pp">{{ fmtDecimal(score.pp, 0) }}<span class="unit">pp</span></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card" v-if="lazer.activity.length">
+            <h2>Recent activity</h2>
+
+            <div class="played" v-for="event in lazer.activity" :key="event.id">
+                <span>
+                    <span class="grade-mark" :class="'grade-' + lazerGrade(event.grade)">{{ event.grade }}</span>
+                    achieved rank #{{ fmtNumber(event.position) }} on
+                    <strong>{{ event.title }}</strong>
+                    <span class="muted">({{ event.mode }})</span>
+                </span>
+
+                <span class="played-count">{{ fmtRelative(event.created_at) }}</span>
             </div>
         </section>
 
@@ -374,6 +431,9 @@ app.component("profile-view", {
         friendship: { loaded: false, status: "none", blocked: false, blockedBy: false, busy: false, error: "" },
         // Hovering a "Following"/"Mutual" button swaps it to a red "Unfollow".
         friendHover: false,
+        // What lazer.jar adds to a profile. lazer.jar is a server of its own and may not be linked at all, in which
+        // case every field stays empty and none of its cards render.
+        lazer: { page: null, counts: null, pinned: [], activity: [] },
         modes: [
             { id: 0, label: "osu!" },
             { id: 1, label: "osu!taiko" },
@@ -668,6 +728,7 @@ app.component("profile-view", {
                 this.player = player;
                 this.setTitle(this.info.name);
                 this.settle("header", "player", player);
+                this.loadLazer(run);
             } catch (e) {
                 if (run !== this.generation) return;
 
@@ -738,6 +799,7 @@ app.component("profile-view", {
                 this.snapshot.player = this.player;
             }
 
+            this.resetLazer();
             this.loadHeader(run, who);
 
             // The requests all leave at once and are not awaited here:
@@ -793,6 +855,50 @@ app.component("profile-view", {
                 answer => {
                     this.beatmapsets = (answer && answer.results) || [];
                 });
+        },
+        /**
+         * The lazer.jar side of the profile: about-me, beatmap counters, pinned scores, recent activity. Asked through
+         * this service, which talks to lazer.jar (a separate server from the one behind everything above). A failure,
+         * or lazer.jar not being linked, simply leaves the cards out.
+         */
+        async loadLazer(run) {
+            const id = this.info && this.info.id;
+
+            if (!id) return;
+
+            try {
+                const response = await fetch("/data/lazer/profile/" + encodeURIComponent(id)
+                    + "?mode=" + encodeURIComponent(this.mode));
+
+                if (!response.ok) return;
+
+                const answer = await response.json();
+
+                if (run !== this.generation) return;
+
+                if (!answer || !answer.enabled || !answer.found) {
+                    this.resetLazer();
+                    return;
+                }
+
+                this.lazer = {
+                    page: answer.page || null,
+                    counts: answer.counts || null,
+                    pinned: answer.pinned || [],
+                    activity: answer.activity || []
+                };
+            } catch (e) {
+                // lazer.jar is optional: the rest of the profile does not depend on it.
+            }
+        },
+        resetLazer() {
+            this.lazer = { page: null, counts: null, pinned: [], activity: [] };
+        },
+        lazerGrade(grade) {
+            return String(grade || "f").toLowerCase().replace("+", "plus");
+        },
+        openLazerScore(score) {
+            if (score && score.id) window.location.href = "/scores/" + score.id;
         },
         // How the visitor stands with this profile, asked through this
         // service because only the session here holds the access token.
