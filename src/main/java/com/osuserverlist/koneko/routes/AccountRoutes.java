@@ -42,6 +42,9 @@ public final class AccountRoutes {
     /** A cover spans the whole profile card, so it is allowed as much as an avatar. */
     private static final int MAX_BANNER_BYTES = 4 * 1024 * 1024;
 
+    /** The page background is a full screen picture, sent as a JPEG scaled down in the browser. */
+    private static final int MAX_BACKGROUND_BYTES = 4 * 1024 * 1024;
+
     /** What the browser may post, and where it goes on the API. */
     private static final Map<String, String> ACTIONS = Map.of(
             "update", "/api/v1/me/update",
@@ -67,6 +70,7 @@ public final class AccountRoutes {
         config.routes.post("/account/avatar", AccountRoutes::avatar);
         config.routes.post("/account/badge-icon", AccountRoutes::badgeIcon);
         config.routes.post("/account/banner", AccountRoutes::banner);
+        config.routes.post("/account/background", AccountRoutes::background);
         config.routes.post("/account/{action}", AccountRoutes::action);
     }
 
@@ -210,6 +214,54 @@ public final class AccountRoutes {
             ctx.json(body);
         } catch (ApiException e) {
             fail(ctx, e, "banner");
+        }
+    }
+
+    /**
+     * And again for the picture behind a whole profile page. The API decides
+     * whether the account may have one at all, re-encodes the image and stores it.
+     */
+    private static void background(Context ctx) {
+        UserSession session = Auth.current(ctx);
+
+        if (session == null) {
+            deny(ctx);
+            return;
+        }
+        if (Verification.blocksApi(ctx, session)) {
+            return;
+        }
+        if (!sameOrigin(ctx)) {
+            ctx.status(403).json(Map.of("status", "Cross-site background uploads are not allowed."));
+            return;
+        }
+
+        String contentType = ctx.contentType();
+        String mime = contentType == null ? "" : contentType.toLowerCase().split(";")[0].trim();
+        if (!mime.equals("image/png") && !mime.equals("image/jpeg")) {
+            ctx.status(415).json(Map.of("status", "The background must be a PNG or JPEG image."));
+            return;
+        }
+
+        long declared = ctx.contentLength();
+        if (declared <= 0 || declared > MAX_BACKGROUND_BYTES) {
+            ctx.status(413).json(Map.of("status", "The background is too large (4 MB maximum)."));
+            return;
+        }
+
+        byte[] image = ctx.bodyAsBytes();
+        if (image.length == 0 || image.length > MAX_BACKGROUND_BYTES) {
+            ctx.status(413).json(Map.of("status", "The background is too large (4 MB maximum)."));
+            return;
+        }
+
+        try {
+            JsonNode body = App.api.requestBytes("POST", "/api/v1/me/background", image,
+                    mime, session.getTokens().getAccessToken());
+            ctx.header("Cache-Control", "private, no-store");
+            ctx.json(body);
+        } catch (ApiException e) {
+            fail(ctx, e, "background");
         }
     }
 

@@ -88,7 +88,7 @@ database and no Redis of its own: every piece of data comes from
 | Own profile | `/me` | redirects to `/u/<your id>` |
 | Login | `/login` | `POST /auth/login` here, then `oauth/token` (password grant) |
 | Sign up | `/register` | `POST /auth/register` here |
-| Settings | `/settings` | `/account/*` here: avatar, banner, badge icon, 2FA |
+| Settings | `/settings` | `/account/*` here: avatar, banner, page background, badge icon, 2FA |
 | Restrictions | `/restrictions` | `/data/docs/restrictions` |
 | Staff panel | `/admin/...` | `/admin/api/*`, staff only |
 

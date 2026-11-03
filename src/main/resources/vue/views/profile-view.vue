@@ -1,5 +1,9 @@
 <template id="profile-view">
-<div class="page">
+<div class="page" :style="schemeStyle">
+    <!-- The supporter's own picture behind the whole page. Fixed to the
+         window, so it stays put while the cards scroll over it. -->
+    <div class="profile-backdrop" v-if="backgroundUrl || schemeStyle" :style="backdropStyle" aria-hidden="true"></div>
+
     <site-nav></site-nav>
 
     <koneko-slot name="profile.top"></koneko-slot>
@@ -518,6 +522,83 @@ app.component("profile-view", {
             });
 
             return ignored ? "" : banner;
+        },
+        /**
+         * The page background, or nothing. Backgrounds are uploaded to
+         * /api/v1/me/background and served from /api/v1/background/, so any other
+         * value is ignored instead of being pasted into a style.
+         */
+        backgroundUrl() {
+            const background = (this.info.custom_background || "").trim();
+
+            return /^\/api\/v1\/background\/[0-9]{1,10}\.jpg$/.test(background) ? background : "";
+        },
+        /**
+         * The colour scheme of the profile: the accent tokens, derived from the one
+         * colour the supporter picked. Only a strict #rrggbb value is used, since it
+         * ends up in a style attribute. Without one the site colours stay.
+         */
+        schemeStyle() {
+            const color = (this.info.profile_color || "").trim();
+
+            if (!/^#[0-9a-fA-F]{6}$/.test(color)) return null;
+
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            const shade = amount => "rgb(" + [r, g, b].map(v =>
+                Math.max(0, Math.min(255, Math.round(amount > 0 ? v + (255 - v) * amount : v * (1 + amount))))
+            ).join(",") + ")";
+            // Text on the accent: dark on light colours, white on dark ones.
+            const luma = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+            // The surfaces take the hue of the colour, kept dark and quiet so the
+            // content stays readable. With a background picture the panels let a
+            // little of it through.
+            // The panels take their hue from the secondary colour, or from the
+            // primary one when no secondary was picked.
+            const other = (this.info.profile_color_secondary || "").trim();
+            const tint = /^#[0-9a-fA-F]{6}$/.test(other) ? other : color;
+            const tr = parseInt(tint.slice(1, 3), 16) / 255;
+            const tg = parseInt(tint.slice(3, 5), 16) / 255;
+            const tb = parseInt(tint.slice(5, 7), 16) / 255;
+            const max = Math.max(tr, tg, tb), min = Math.min(tr, tg, tb);
+            const d = max - min;
+            let hue = 0;
+            if (d > 0) {
+                if (max === tr) hue = ((tg - tb) / d + 6) % 6;
+                else if (max === tg) hue = (tb - tr) / d + 2;
+                else hue = (tr - tg) / d + 4;
+                hue *= 60;
+            }
+            const chroma = d === 0 ? 0 : d / (1 - Math.abs(max + min - 1) || 1);
+            const sat = Math.round(6 + 16 * Math.min(1, chroma));
+            const alpha = this.backgroundUrl ? 0.86 : 1;
+            const surface = (l, a) => "hsla(" + Math.round(hue) + "," + sat + "%," + l + "%," + a + ")";
+            const panel = surface(20, alpha);
+            const inset = surface(15, alpha);
+
+            return {
+                "--page-bg": surface(12, 1),
+                "--bg": surface(12, 1),
+                "--bg-alt": surface(12, 1),
+                "--panel": panel,
+                "--bg-card": panel,
+                "--bg-panel": panel,
+                "--inset": inset,
+                "--bg-soft": inset,
+                "--inset-deep": surface(11, alpha),
+                "--accent": color,
+                "--accent-soft": shade(0.25),
+                "--accent-dark": shade(-0.18),
+                "--accent-tint": "rgba(" + r + "," + g + "," + b + ",0.16)",
+                "--accent-ink": luma > 0.6 ? "#14090e" : "#ffffff"
+            };
+        },
+        backdropStyle() {
+            return this.backgroundUrl
+                ? { backgroundImage: "url(" + this.backgroundUrl + ")" }
+                : null;
         },
         /** Without a banner the strip keeps the flat colour from the stylesheet. */
         coverStyle() {

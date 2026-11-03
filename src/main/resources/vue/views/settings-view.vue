@@ -228,6 +228,109 @@
 
                         <hr class="settings-split">
 
+                        <!-- The picture behind the whole profile page. -->
+                        <div class="stack">
+                            <input ref="backgroundInput" class="avatar-input" type="file" hidden
+                                accept="image/png,image/jpeg" @change="onBackgroundPicked">
+
+                            <div class="field">
+                                <span class="field-label">Profile background</span>
+                                <span class="field-hint muted small">
+                                    The picture behind your whole profile page. PNG or JPEG,
+                                    at least 320px on each side; large images are scaled down
+                                    to fit before they are uploaded. A dark, calm picture
+                                    keeps the text readable.
+                                </span>
+                            </div>
+
+                            <div class="background-preview" v-if="backgroundUrl">
+                                <img :src="backgroundUrl" alt="">
+                            </div>
+
+                            <div class="settings-actions">
+                                <button class="button" type="button"
+                                    :disabled="busy || backgroundUploading || !donor" @click="chooseBackground">
+                                    {{ backgroundUploading ? "Uploading…" : (backgroundPath ? "Replace background" : "Upload background") }}
+                                </button>
+                                <button class="button button-ghost" type="button"
+                                    :disabled="busy || backgroundUploading || !donor || !backgroundPath"
+                                    @click="clearBackground">
+                                    Remove background
+                                </button>
+                            </div>
+                        </div>
+
+                        <hr class="settings-split">
+
+                        <!-- The colours of the profile page: accent and panels. -->
+                        <div class="stack">
+                            <div class="field">
+                                <span class="field-label">Profile colour scheme</span>
+                                <span class="field-hint muted small">
+                                    Shown to everyone who visits your profile. The primary colour is
+                                    the accent (buttons, links, highlights); the secondary colour tints
+                                    the panels everything sits on. Pick them, or let both follow your
+                                    background.
+                                </span>
+                            </div>
+
+                            <div class="swatch-group">
+                                <span class="swatch-label">Primary</span>
+                                <div class="swatch-row">
+                                    <button class="swatch" type="button" v-for="preset in colorPresets"
+                                        :key="'p' + preset.value" :title="preset.label" :aria-label="'Primary ' + preset.label"
+                                        :class="{ active: colorDraft === preset.value }"
+                                        :style="{ background: preset.value }" :disabled="!donor"
+                                        @click="colorDraft = preset.value"></button>
+
+                                    <label class="swatch-custom" title="Custom primary colour">
+                                        <input type="color" v-model="colorDraft" :disabled="!donor"
+                                            aria-label="Custom primary colour">
+                                    </label>
+
+                                    <span class="swatch-value muted small">{{ colorDraft || "Default" }}</span>
+                                </div>
+                            </div>
+
+                            <div class="swatch-group">
+                                <span class="swatch-label">Secondary</span>
+                                <div class="swatch-row">
+                                    <button class="swatch" type="button" v-for="preset in colorPresets"
+                                        :key="'s' + preset.value" :title="preset.label" :aria-label="'Secondary ' + preset.label"
+                                        :class="{ active: colorDraft2 === preset.value }"
+                                        :style="{ background: preset.value }" :disabled="!donor"
+                                        @click="colorDraft2 = preset.value"></button>
+
+                                    <label class="swatch-custom" title="Custom secondary colour">
+                                        <input type="color" v-model="colorDraft2" :disabled="!donor"
+                                            aria-label="Custom secondary colour">
+                                    </label>
+
+                                    <span class="swatch-value muted small">{{ colorDraft2 || "Follows primary" }}</span>
+                                </div>
+                            </div>
+
+                            <div class="settings-actions">
+                                <button class="button" type="button"
+                                    :disabled="busy || !donor || !colorDraft || (colorDraft === savedColor && colorDraft2 === savedColor2)"
+                                    @click="saveColor">
+                                    Save colours
+                                </button>
+                                <button class="button button-ghost" type="button"
+                                    :disabled="busy || colorMatching || !donor || !backgroundPath"
+                                    :title="backgroundPath ? '' : 'Upload a background first'"
+                                    @click="matchBackground">
+                                    {{ colorMatching ? "Reading background…" : "Match background style" }}
+                                </button>
+                                <button class="button button-ghost" type="button"
+                                    :disabled="busy || !donor || (!savedColor && !savedColor2)" @click="resetColor">
+                                    Reset to default
+                                </button>
+                            </div>
+                        </div>
+
+                        <hr class="settings-split">
+
                         <form class="stack" @submit.prevent="saveBadge">
                             <input ref="badgeInput" class="avatar-input" type="file" hidden
                                 accept="image/png,image/jpeg" @change="openBadgeEditor">
@@ -491,6 +594,27 @@
             bannerPath: "",
             bannerVersion: 0,
             bannerUploading: false,
+            // And the page background, which needs no crop: the browser only
+            // scales it down, so it has no editor dialog of its own.
+            backgroundPath: "",
+            backgroundVersion: 0,
+            backgroundUploading: false,
+            // The accent colour: what the picker shows now, and what is stored.
+            colorDraft: "",
+            savedColor: "",
+            colorDraft2: "",
+            savedColor2: "",
+            colorMatching: false,
+            colorPresets: [
+                { label: "Pink", value: "#ff4d8d" },
+                { label: "Purple", value: "#8c66ff" },
+                { label: "Blue", value: "#4da3ff" },
+                { label: "Cyan", value: "#35d0c8" },
+                { label: "Green", value: "#4ade80" },
+                { label: "Yellow", value: "#facc15" },
+                { label: "Orange", value: "#ff9f43" },
+                { label: "Red", value: "#f05252" }
+            ],
             email: { email: "", current_password: "" },
             // Two factor authentication. The secret only lives here while it is being set up;
             // once confirmed the server keeps it and the browser has no use for it.
@@ -572,6 +696,13 @@
                 return this.bannerVersion
                     ? this.bannerPath + "?v=" + this.bannerVersion
                     : this.bannerPath;
+            },
+            backgroundUrl() {
+                if (!this.backgroundPath) return "";
+
+                return this.backgroundVersion
+                    ? this.backgroundPath + "?v=" + this.backgroundVersion
+                    : this.backgroundPath;
             },
             boxStyle() {
                 const crop = this.avatarEditor.crop;
@@ -908,6 +1039,11 @@
                         this.badge.custom_badge_name = this.info.custom_badge_name || "";
                         this.badgeIcon = this.info.custom_badge_icon || "";
                         this.bannerPath = this.info.custom_banner || "";
+                        this.backgroundPath = this.info.custom_background || "";
+                        this.savedColor = this.info.profile_color || "";
+                        this.colorDraft = this.savedColor;
+                        this.savedColor2 = this.info.profile_color_secondary || "";
+                        this.colorDraft2 = this.savedColor2;
                         this.styleBits = this.playStyles
                             .filter(style => (this.info.play_style & style.bit) !== 0)
                             .map(style => style.bit);
@@ -1114,6 +1250,282 @@
                 } finally {
                     this.avatarEditor.saving = false;
                     this.bannerUploading = false;
+                }
+            },
+            chooseBackground() {
+                this.$refs.backgroundInput.click();
+            },
+            /**
+             * A background is not cropped, so the picked file goes straight from the
+             * input to a canvas that fits it into 1920x1200 and re-encodes it as
+             * JPEG. The server does the same again and is the one that decides; this
+             * only keeps the upload small enough to be accepted.
+             */
+            async onBackgroundPicked(event) {
+                const file = event.target.files && event.target.files[0];
+                event.target.value = "";
+                if (!file) return;
+
+                if (!["image/png", "image/jpeg"].includes(file.type)) {
+                    this.error = "Choose a PNG or JPEG image.";
+                    return;
+                }
+                if (file.size > 25 * 1024 * 1024) {
+                    this.error = "The source image may be at most 25 MB.";
+                    return;
+                }
+
+                this.backgroundUploading = true;
+                this.error = "";
+                this.notice = "";
+
+                const objectUrl = URL.createObjectURL(file);
+
+                try {
+                    const image = await new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = () => reject(new Error("That file could not be decoded as an image."));
+                        img.src = objectUrl;
+                    });
+
+                    const width = image.naturalWidth;
+                    const height = image.naturalHeight;
+
+                    if (width < 320 || height < 320) {
+                        throw new Error("Use an image that is at least 320px on each side.");
+                    }
+                    if (width > 8192 || height > 8192 || width * height > 40000000) {
+                        throw new Error("Use an image up to 8192px on a side (40 megapixels max).");
+                    }
+
+                    const factor = Math.min(1, 1920 / width, 1200 / height);
+                    const canvas = document.createElement("canvas");
+                    canvas.width = Math.max(1, Math.round(width * factor));
+                    canvas.height = Math.max(1, Math.round(height * factor));
+
+                    const context = canvas.getContext("2d");
+                    context.imageSmoothingEnabled = true;
+                    context.imageSmoothingQuality = "high";
+                    // JPEG has no transparency, so a PNG with holes is laid on the page colour.
+                    context.fillStyle = "#0e0e10";
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+                    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+                    let blob = null;
+                    for (const quality of [0.88, 0.75, 0.6]) {
+                        blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", quality));
+                        if (!blob) throw new Error("Could not prepare the image.");
+                        if (blob.size <= 3.8 * 1024 * 1024) break;
+                    }
+                    if (blob.size > 3.8 * 1024 * 1024) {
+                        throw new Error("The image is still too large (4 MB maximum) after scaling.");
+                    }
+
+                    const response = await fetch("/account/background", {
+                        method: "POST",
+                        headers: { "Accept": "application/json", "Content-Type": "image/jpeg" },
+                        credentials: "same-origin",
+                        body: blob
+                    });
+
+                    let answer = null;
+                    try { answer = await response.json(); } catch (ignored) {}
+
+                    if (!response.ok) {
+                        throw new Error((answer && (answer.status || answer.error_description))
+                            || "The background could not be uploaded.");
+                    }
+
+                    this.backgroundPath = (answer && answer.custom_background) || this.backgroundPath;
+                    this.backgroundVersion = Date.now();
+                    this.info.custom_background = this.backgroundPath;
+                    this.notice = "Background uploaded.";
+                } catch (e) {
+                    this.error = e.message || "The background could not be uploaded.";
+                } finally {
+                    URL.revokeObjectURL(objectUrl);
+                    this.backgroundUploading = false;
+                }
+            },
+            async saveColor() {
+                const color = (this.colorDraft || "").toLowerCase();
+                const second = (this.colorDraft2 || "").toLowerCase();
+
+                if (!/^#[0-9a-f]{6}$/.test(color)) {
+                    this.error = "Pick a primary colour first.";
+                    return false;
+                }
+
+                const ok = await this.save("update", {
+                    profile_color: color,
+                    profile_color_secondary: /^#[0-9a-f]{6}$/.test(second) ? second : null
+                }, "Colour scheme saved.");
+
+                if (ok) {
+                    this.savedColor = color;
+                    this.colorDraft = color;
+                    this.savedColor2 = /^#[0-9a-f]{6}$/.test(second) ? second : "";
+                    this.colorDraft2 = this.savedColor2;
+                    this.info.profile_color = color;
+                    this.info.profile_color_secondary = this.savedColor2 || null;
+                }
+
+                return ok;
+            },
+            async resetColor() {
+                const ok = await this.save("update",
+                    { profile_color: null, profile_color_secondary: null }, "Colour scheme reset.");
+
+                if (ok) {
+                    this.savedColor = "";
+                    this.colorDraft = "";
+                    this.savedColor2 = "";
+                    this.colorDraft2 = "";
+                    this.info.profile_color = null;
+                    this.info.profile_color_secondary = null;
+                }
+            },
+            /**
+             * Reads the background picture and picks both colours out of it: the
+             * primary one is the most common vivid hue, the secondary one the next
+             * hue that is clearly different (or a neighbouring hue when the picture
+             * has only one). Both are then saved like any other colour.
+             */
+            async matchBackground() {
+                if (!this.backgroundUrl) return;
+
+                this.colorMatching = true;
+                this.error = "";
+                this.notice = "";
+
+                try {
+                    const image = await new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = () => reject(new Error("The background could not be read."));
+                        img.src = this.backgroundPath + "?m=" + Date.now();
+                    });
+
+                    const canvas = document.createElement("canvas");
+                    canvas.width = 64;
+                    canvas.height = Math.max(1, Math.round(64 * image.naturalHeight / image.naturalWidth));
+
+                    const context = canvas.getContext("2d", { willReadFrequently: true });
+                    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+                    const picked = this.pickColors(context.getImageData(0, 0, canvas.width, canvas.height).data);
+                    this.colorDraft = picked.primary;
+                    this.colorDraft2 = picked.secondary;
+
+                    if (await this.saveColor()) {
+                        this.notice = "Colours matched to your background.";
+                    }
+                } catch (e) {
+                    this.error = e.message || "The background could not be read.";
+                } finally {
+                    this.colorMatching = false;
+                }
+            },
+            /** {primary, secondary} as #rrggbb, taken from RGBA pixel data. */
+            pickColors(data) {
+                const bins = 24;
+                const weight = new Array(bins).fill(0);
+                const sums = Array.from({ length: bins }, () => [0, 0, 0]);
+                const avg = [0, 0, 0];
+                let count = 0;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    if (data[i + 3] < 128) continue;
+
+                    const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255;
+                    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                    const d = max - min;
+
+                    avg[0] += r; avg[1] += g; avg[2] += b; count++;
+
+                    if (max < 0.12 || d < 0.08) continue;
+
+                    let h;
+                    if (max === r) h = ((g - b) / d + 6) % 6;
+                    else if (max === g) h = (b - r) / d + 2;
+                    else h = (r - g) / d + 4;
+
+                    const w = d;
+                    const bin = Math.min(bins - 1, Math.floor(h / 6 * bins));
+
+                    weight[bin] += w;
+                    sums[bin][0] += r * w; sums[bin][1] += g * w; sums[bin][2] += b * w;
+                }
+
+                let best = -1;
+                for (let k = 0; k < bins; k++) {
+                    if (weight[k] > 0 && (best < 0 || weight[k] > weight[best])) best = k;
+                }
+
+                // The next hue that is at least 60 degrees away and carries a fair share.
+                let second = -1;
+                if (best >= 0) {
+                    for (let k = 0; k < bins; k++) {
+                        const gap = Math.min((k - best + bins) % bins, (best - k + bins) % bins);
+                        if (gap >= 4 && weight[k] >= weight[best] * 0.15
+                            && (second < 0 || weight[k] > weight[second])) second = k;
+                    }
+                }
+
+                const vivid = best >= 0 && weight[best] > 0.5;
+                const mean = count > 0 ? avg.map(v => v / count) : [0.55, 0.4, 1];
+                const rgbOf = k => sums[k].map(v => v / weight[k]);
+
+                const primaryRgb = vivid ? rgbOf(best) : mean;
+                const primary = this.toAccent(primaryRgb, vivid, 0);
+                // No second hue in the picture: a neighbour of the first one reads as a
+                // matching pair instead of a random one.
+                const secondary = second >= 0
+                    ? this.toAccent(rgbOf(second), true, 0)
+                    : this.toAccent(primaryRgb, vivid, 40);
+
+                return { primary: primary, secondary: secondary };
+            },
+            /** RGB 0..1 into a readable accent #rrggbb, optionally turning the hue by some degrees. */
+            toAccent(rgb, vivid, turn) {
+                const max = Math.max(...rgb), min = Math.min(...rgb);
+                let l = (max + min) / 2, h = 0, s = 0;
+                if (max !== min) {
+                    const d = max - min;
+                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                    if (max === rgb[0]) h = ((rgb[1] - rgb[2]) / d + 6) % 6;
+                    else if (max === rgb[1]) h = (rgb[2] - rgb[0]) / d + 2;
+                    else h = (rgb[0] - rgb[1]) / d + 4;
+                    h /= 6;
+                }
+
+                h = (h + turn / 360 + 1) % 1;
+                s = vivid ? Math.max(0.55, Math.min(0.95, s)) : Math.min(0.5, s);
+                l = Math.max(0.58, Math.min(0.7, l));
+
+                const hue = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1 / 6) return p + (q - p) * 6 * t;
+                    if (t < 1 / 2) return q;
+                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                    return p;
+                };
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                const out = [hue(p, q, h + 1 / 3), hue(p, q, h), hue(p, q, h - 1 / 3)];
+
+                return "#" + out.map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
+            },
+            /** Clearing it is a normal profile update; only uploading needs the file route. */
+            async clearBackground() {
+                const ok = await this.save("update", { custom_background: null }, "Background removed.");
+
+                if (ok) {
+                    this.backgroundPath = "";
+                    this.backgroundVersion = 0;
+                    this.info.custom_background = null;
                 }
             },
             /** Clearing it is a normal profile update; only uploading needs the file route. */
