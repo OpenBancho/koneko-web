@@ -6125,7 +6125,7 @@ body {
 
 .daily-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+    grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
     gap: 20px;
     align-items: start;
 }
@@ -6165,12 +6165,18 @@ body {
     font-weight: 700;
 }
 
-.daily-search {
-    width: 100%;
+.daily-step-n.is-idle {
+    background: var(--bg-soft);
+    color: var(--muted);
+    border: 1px solid var(--border);
 }
 
-.daily-hint {
-    margin: 10px 0 0;
+.daily-locked {
+    opacity: 0.7;
+}
+
+.daily-locked p {
+    margin: 0;
 }
 
 .daily-notice {
@@ -6196,45 +6202,203 @@ body {
     background: rgba(242, 242, 97, 0.07);
 }
 
-/* search results */
+/* toolbar: search, status, mode */
 
-.daily-results {
-    display: grid;
+.daily-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.daily-search {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
+.daily-status {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+.daily-segment {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.daily-segment-btn,
+.daily-tab {
+    appearance: none;
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--muted);
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 14px;
+    cursor: pointer;
+}
+
+.daily-segment-btn:hover,
+.daily-tab:hover {
+    border-color: var(--accent-soft);
+    color: var(--text);
+}
+
+.daily-segment-btn.is-on,
+.daily-tab.is-on {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+}
+
+.daily-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
+    margin: 14px 0 0;
+}
+
+.daily-tabs-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.daily-empty {
+    margin: 18px 0 4px;
+}
+
+/* map cards */
+
+.daily-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
     margin-top: 14px;
 }
 
-.daily-result,
-.daily-diff {
-    appearance: none;
-    width: 100%;
-    text-align: left;
-    color: inherit;
-    font: inherit;
+.daily-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     cursor: pointer;
     background: var(--bg-soft);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
+    transition: border-color 0.15s ease, transform 0.15s ease;
 }
 
-.daily-result {
-    display: grid;
-    grid-template-columns: 76px minmax(0, 1fr) auto;
-    gap: 14px;
-    align-items: center;
-    padding: 8px 12px 8px 8px;
-}
-
-.daily-result:hover,
-.daily-diff:hover {
+.daily-card:hover {
     border-color: var(--accent-soft);
+    transform: translateY(-1px);
 }
 
-.daily-result.is-picked,
-.daily-diff.is-picked {
+.daily-card.is-picked {
     border-color: var(--accent);
     box-shadow: 0 0 0 1px var(--accent) inset;
 }
+
+.daily-card-skeleton {
+    height: 210px;
+    border-radius: var(--radius-md);
+}
+
+.daily-card-cover {
+    position: relative;
+    height: 96px;
+    background: var(--bg-panel) center / cover no-repeat;
+}
+
+.daily-card-status {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+}
+
+.daily-card-time {
+    position: absolute;
+    right: 8px;
+    bottom: 6px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.62);
+    font-size: 0.75rem;
+}
+
+.daily-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 10px 12px 12px;
+    min-width: 0;
+}
+
+.daily-card-title,
+.daily-card-artist {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.daily-card-artist {
+    font-size: 0.9rem;
+}
+
+.daily-card-mapper {
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.daily-pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    margin-top: 9px;
+}
+
+.daily-pill {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 1px 9px 1px 6px;
+    cursor: pointer;
+}
+
+.daily-pill:hover {
+    border-color: var(--accent-soft);
+}
+
+.daily-pill.is-picked {
+    border-color: var(--accent);
+    background: rgba(255, 77, 141, 0.18);
+}
+
+.daily-pill-orb {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.daily-pill-more {
+    font-size: 0.78rem;
+}
+
+/* the picked set: banner and difficulty list */
 
 .daily-cover {
     display: block;
@@ -6249,53 +6413,6 @@ body {
     width: 120px;
     height: 68px;
 }
-
-.daily-result-body {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.daily-result-title {
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.daily-result-artist {
-    color: var(--muted);
-    font-size: 0.9rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.daily-result-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    margin-top: 2px;
-    color: var(--muted);
-    font-size: 0.78rem;
-}
-
-.daily-orbs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 3px;
-    max-width: 120px;
-    justify-content: flex-end;
-}
-
-.daily-orb {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-}
-
-/* difficulties */
 
 .daily-banner {
     display: flex;
@@ -6326,11 +6443,29 @@ body {
 }
 
 .daily-diff {
+    appearance: none;
+    width: 100%;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     display: grid;
     grid-template-columns: 14px minmax(0, 1.2fr) auto minmax(0, 2fr) auto;
     gap: 12px;
     align-items: center;
     padding: 9px 12px;
+}
+
+.daily-diff:hover {
+    border-color: var(--accent-soft);
+}
+
+.daily-diff.is-picked {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent) inset;
 }
 
 .daily-diff-orb {

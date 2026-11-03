@@ -64,6 +64,11 @@ public final class KonekoVue {
     private static final Pattern PLUGIN_HEAD_MARKER = marker("@pluginHead");
     private static final Pattern PLUGIN_BODY_MARKER = marker("@pluginBody");
 
+    /** A stylesheet or script of /public, referenced with a version query: /css/koneko.css?v=anything */
+    private static final Pattern ASSET_REFERENCE = Pattern.compile("(/(?:css|js)/[A-Za-z0-9._-]+\\.(?:css|js))\\?v=[^\"'\\s>]*");
+
+    private static final Map<String, String> assetVersions = new ConcurrentHashMap<>();
+
     private static final Pattern HTML_COMMENT = Pattern.compile("<!--[\\s\\S]*?-->");
     private static final Pattern BLOCK_COMMENT = Pattern.compile("/\\*[\\s\\S]*?\\*/");
     private static final Pattern LINE_COMMENT = Pattern.compile("(?m)^[ \\t]*//.*$");
@@ -151,6 +156,7 @@ public final class KonekoVue {
         html = html.replace("@routeName", component);
         html = replace(html, PLUGIN_HEAD_MARKER, fromPlugin(pluginHead));
         html = replace(html, PLUGIN_BODY_MARKER, fromPlugin(pluginBodyEnd));
+        html = versionAssets(html);
 
         BiConsumer<Context, String> hook = renderHook;
 
@@ -199,6 +205,54 @@ public final class KonekoVue {
         String shared = publicSharedComponents();
 
         return all.startsWith(shared) ? all.substring(shared.length()) : all;
+    }
+
+    /**
+     * Gives every /css and /js reference the version of the file it points at.
+     *
+     * <p>The numbers that used to be typed into layout.html were never bumped when a stylesheet changed, so a browser
+     * (or a CDN in front of the site) kept serving the old file under the unchanged address and new pages came out
+     * unstyled. The version is now a hash of the file's content: it moves exactly when the file does.
+     */
+    private static String versionAssets(String html) {
+        return ASSET_REFERENCE.matcher(html).replaceAll(match ->
+                Matcher.quoteReplacement(match.group(1) + "?v=" + assetVersion(match.group(1))));
+    }
+
+    private static String assetVersion(String path) {
+        if (devMode) {
+            return hashOf(path);
+        }
+
+        return assetVersions.computeIfAbsent(path, KonekoVue::hashOf);
+    }
+
+    private static String hashOf(String path) {
+        try {
+            byte[] bytes = null;
+            Path dev = Paths.get("src", "main", "resources", "public").resolve(path.substring(1));
+
+            if (devMode && Files.isRegularFile(dev)) {
+                bytes = Files.readAllBytes(dev);
+            } else {
+                try (InputStream in = KonekoVue.class.getResourceAsStream("/public" + path)) {
+                    if (in != null) {
+                        bytes = in.readAllBytes();
+                    }
+                }
+            }
+
+            if (bytes == null) {
+                return "0";
+            }
+
+            java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+            crc.update(bytes);
+
+            return Long.toHexString(crc.getValue());
+        } catch (IOException e) {
+            return "0";
+        }
     }
 
     /** A plugin contribution, or an empty string when there is none. */

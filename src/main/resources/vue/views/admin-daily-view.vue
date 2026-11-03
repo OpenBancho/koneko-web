@@ -3,9 +3,9 @@
         <section class="card">
             <h2>Daily Challenge</h2>
             <p class="muted small">
-                One map per day (UTC) that every player can play from the multiplayer lobby. Search for a map, pick the
-                difficulty, choose the date and the mods, and schedule it. Choosing a date that already has a challenge
-                replaces it.
+                One map per day (UTC) that every player can play from the multiplayer lobby. Pick a map below &mdash; click
+                a card, or click the star badge of the exact difficulty &mdash; then choose the date and the mods.
+                Choosing a date that already has a challenge replaces it.
             </p>
 
             <p class="daily-notice daily-notice-ok" v-if="notice" role="status">{{ notice }}</p>
@@ -18,47 +18,70 @@
                 <section class="card">
                     <h3 class="daily-step"><span class="daily-step-n">1</span> Find a map</h3>
 
-                    <input class="filter-input daily-search" type="search" v-model="query" @input="onQuery"
-                        placeholder="Title, artist or mapper &mdash; or paste a beatmap link / ID"
-                        autocomplete="off" spellcheck="false" aria-label="Search for a beatmap">
+                    <div class="daily-toolbar">
+                        <input class="filter-input daily-search" type="search" v-model="query" @input="onQuery"
+                            placeholder="Search by title, artist or mapper, or paste a link / ID"
+                            autocomplete="off" spellcheck="false" aria-label="Search for a beatmap">
 
-                    <p class="muted small daily-hint" v-if="!query && !results.length">
-                        Links like <code>/beatmapsets/123#osu/456</code> or <code>/b/456</code> pick that exact
-                        difficulty. A bare number is tried as a difficulty ID first, then as a set ID.
-                    </p>
-
-                    <div class="skeleton-rows" v-if="searching">
-                        <div class="skeleton skeleton-row" v-for="n in 3" :key="n"></div>
+                        <select class="filter-input daily-status" v-model="status" @change="refresh"
+                            aria-label="Map status">
+                            <option v-for="o in statusOptions" :key="o.value" :value="o.value">{{ o.name }}</option>
+                        </select>
                     </div>
 
-                    <p class="muted" v-else-if="query && searched && !results.length">Nothing found for that.</p>
+                    <div class="daily-segment" role="group" aria-label="Game mode">
+                        <button type="button" class="daily-segment-btn" v-for="m in modeOptions" :key="m.value"
+                            :class="{ 'is-on': mode === m.value }" @click="setMode(m.value)">{{ m.name }}</button>
+                    </div>
 
-                    <div class="daily-results" v-else-if="results.length">
-                        <button type="button" class="daily-result" v-for="item in results" :key="item.set_id"
+                    <div class="daily-tabs" v-if="!isSearching">
+                        <span class="daily-tabs-label muted">Suggestions</span>
+                        <button type="button" class="daily-tab" v-for="t in tabs" :key="t.value"
+                            :class="{ 'is-on': tab === t.value }" @click="setTab(t.value)">{{ t.name }}</button>
+                    </div>
+                    <p class="muted small daily-tabs" v-else>
+                        Search results. Links like <code>/beatmapsets/123#osu/456</code> or <code>/b/456</code> open that
+                        exact difficulty.
+                    </p>
+
+                    <div class="daily-cards" v-if="loadingList">
+                        <div class="skeleton daily-card-skeleton" v-for="n in 6" :key="n"></div>
+                    </div>
+
+                    <p class="muted daily-empty" v-else-if="!results.length">
+                        {{ isSearching ? "Nothing found for that. Try fewer words or another status." : "No maps to suggest with these filters." }}
+                    </p>
+
+                    <div class="daily-cards" v-else>
+                        <article class="daily-card" v-for="item in results" :key="item.set_id"
                             :class="{ 'is-picked': set && set.set_id === item.set_id }" @click="pickSet(item)">
-                            <span class="daily-cover" :style="coverStyle(item.set_id, 'list')"></span>
+                            <div class="daily-card-cover" :style="coverStyle(item.set_id, 'card')">
+                                <span class="badge daily-card-status">{{ statusName(item.status) }}</span>
+                                <span class="daily-card-time">{{ fmtLength(item.total_length) }} &middot; {{ Math.round(item.bpm) }} BPM</span>
+                            </div>
 
-                            <span class="daily-result-body">
-                                <span class="daily-result-title">{{ item.title }}</span>
-                                <span class="daily-result-artist">{{ item.artist }}</span>
-                                <span class="daily-result-meta">
-                                    <span>mapped by {{ item.creator }}</span>
-                                    <span class="badge">{{ statusName(item.status) }}</span>
-                                    <span>{{ (item.difficulties || []).length }} diffs</span>
-                                </span>
-                            </span>
+                            <div class="daily-card-body">
+                                <strong class="daily-card-title" :title="item.title">{{ item.title }}</strong>
+                                <span class="daily-card-artist" :title="item.artist">{{ item.artist }}</span>
+                                <span class="daily-card-mapper muted">mapped by {{ item.creator }}</span>
 
-                            <span class="daily-orbs">
-                                <span class="daily-orb" v-for="d in sortedDiffs(item).slice(0, 12)" :key="d.id"
-                                    :style="{ background: starColor(d.diff) }"
-                                    :title="d.version + ' - ' + fmtDecimal(d.diff) + ' stars'"></span>
-                            </span>
-                        </button>
+                                <div class="daily-pills">
+                                    <button type="button" class="daily-pill" v-for="d in pills(item)" :key="d.id"
+                                        :class="{ 'is-picked': diffId === d.id }"
+                                        :title="d.version + ' (' + modeName(d.mode) + ', ' + fmtDecimal(d.diff, 2) + ' stars)'"
+                                        @click.stop="pickSet(item, d.id)">
+                                        <span class="daily-pill-orb" :style="{ background: starColor(d.diff) }"></span>
+                                        {{ d.diff > 0 ? fmtDecimal(d.diff, 1) : "?" }}
+                                    </button>
+                                    <span class="daily-pill-more muted" v-if="hiddenPills(item) > 0">+{{ hiddenPills(item) }}</span>
+                                </div>
+                            </div>
+                        </article>
                     </div>
                 </section>
 
                 <!-- 2. DIFFICULTY -->
-                <section class="card" v-if="set">
+                <section class="card" v-if="set" ref="step2">
                     <h3 class="daily-step"><span class="daily-step-n">2</span> Choose the difficulty</h3>
 
                     <div class="daily-banner" :style="coverStyle(set.set_id, 'cover')">
@@ -83,6 +106,11 @@
                             </span>
                         </button>
                     </div>
+                </section>
+
+                <section class="card daily-locked" v-else>
+                    <h3 class="daily-step"><span class="daily-step-n is-idle">2</span> Choose the difficulty</h3>
+                    <p class="muted small">Pick a map above and its difficulties show up here.</p>
                 </section>
 
                 <!-- 3. WHEN AND HOW -->
@@ -152,6 +180,11 @@
                         <button class="button button-ghost" type="button" :disabled="saving" @click="reset">Start over</button>
                     </div>
                 </section>
+
+                <section class="card daily-locked" v-else>
+                    <h3 class="daily-step"><span class="daily-step-n is-idle">3</span> Date, mods and scheduling</h3>
+                    <p class="muted small">Available once a difficulty is chosen.</p>
+                </section>
             </div>
 
             <!-- SCHEDULE -->
@@ -214,10 +247,11 @@
     /**
      * Picking the daily challenge without typing an ID.
      *
-     * The map is found through the public search of this server (title, artist, mapper, or a pasted link / ID), the
-     * difficulty is chosen from the set's own list with its star colour and stats, the mods are toggled as chips, and
-     * the date comes with a note when it would replace something. Saving goes through /admin/api/daily, which is
-     * limited to administrators and developers and talks to lazer.jar with the website's own key.
+     * The page opens with suggestions (the latest and the most played maps, filtered by mode and status) so there is
+     * always something to click; the search box narrows them down by title, artist or mapper, or takes a pasted link
+     * or ID. Every card shows the star badges of its difficulties, and clicking a badge picks that exact one. The mods
+     * are toggled as chips, the date comes with a note when it would replace something, and saving goes through
+     * /admin/api/daily, which is limited to administrators and developers and talks to lazer.jar with the website's key.
      */
     (function () {
         // Mods a daily challenge can sensibly allow or require. The ruleset decides which of them exist.
@@ -239,6 +273,8 @@
             HT: ["DT", "NC"], DT: ["HT", "NC"], NC: ["HT", "DT"]
         };
 
+        const MAX_PILLS = 8;
+
         app.component("admin-daily-view", {
             template: "#admin-daily-view",
             // handed down by the panel shell; this page has no use for it but must not leak it onto the DOM
@@ -246,10 +282,30 @@
             data: () => ({
                 query: "",
                 results: [],
-                searching: false,
-                searched: false,
-                searchRun: 0,
+                loadingList: true,
+                listRun: 0,
                 timer: null,
+
+                // filters of the suggestions and of the search
+                mode: "",
+                status: "1",
+                tab: "updated",
+                modeOptions: [
+                    { value: "", name: "Any mode" },
+                    { value: "0", name: "osu!" },
+                    { value: "1", name: "taiko" },
+                    { value: "2", name: "catch" },
+                    { value: "3", name: "mania" }
+                ],
+                statusOptions: [
+                    { value: "1", name: "Ranked" },
+                    { value: "4", name: "Loved" },
+                    { value: "", name: "Any status" }
+                ],
+                tabs: [
+                    { value: "updated", name: "Latest" },
+                    { value: "plays", name: "Most played" }
+                ],
 
                 set: null,
                 diffId: null,
@@ -272,6 +328,9 @@
                 error: ""
             }),
             computed: {
+                isSearching() {
+                    return this.query.trim().length > 0;
+                },
                 diffs() {
                     return this.set ? this.sortedDiffs(this.set) : [];
                 },
@@ -310,6 +369,13 @@
                 sortedDiffs(set) {
                     return (set.difficulties || []).slice().sort((a, b) => (a.mode - b.mode) || (a.diff - b.diff));
                 },
+                /** The badges shown on a card: easiest to hardest, capped so a huge set does not blow the card up. */
+                pills(item) {
+                    return this.sortedDiffs(item).slice(0, MAX_PILLS);
+                },
+                hiddenPills(item) {
+                    return Math.max(0, (item.difficulties || []).length - MAX_PILLS);
+                },
                 acronyms(list) {
                     return (list || []).map(m => m.acronym).join(" ");
                 },
@@ -317,10 +383,27 @@
                     return Object.keys(this.mods).filter(a => this.mods[a] === kind).join(" ");
                 },
 
-                // ---- search ----
+                // ---- suggestions and search ----
+                setMode(value) {
+                    this.mode = value;
+                    this.refresh();
+                },
+                setTab(value) {
+                    this.tab = value;
+                    this.refresh();
+                },
                 onQuery() {
                     window.clearTimeout(this.timer);
-                    this.timer = window.setTimeout(() => this.runSearch(), 320);
+                    this.loadingList = true;
+                    this.timer = window.setTimeout(() => this.refresh(), 320);
+                },
+                /** The parameters shared by the suggestions and the text search. */
+                filters() {
+                    return {
+                        mode: this.mode,
+                        status: this.status,
+                        limit: 12
+                    };
                 },
                 /** Reads a pasted link or id: the set and, when it names one, the difficulty. */
                 parseReference(text) {
@@ -339,52 +422,48 @@
 
                     return null;
                 },
-                async runSearch() {
-                    const run = ++this.searchRun;
+                /** Fills the list: suggestions when the box is empty, matches when it is not. */
+                async refresh() {
+                    const run = ++this.listRun;
                     const text = this.query.trim();
 
-                    if (text.length < 2 && !/^\d+$/.test(text)) {
-                        this.results = [];
-                        this.searched = false;
-                        this.searching = false;
-                        return;
-                    }
-
-                    this.searching = true;
+                    this.loadingList = true;
                     this.error = "";
 
                     try {
-                        const ref = this.parseReference(text);
-                        let found = [];
+                        if (text.length === 1 && !/^\d$/.test(text)) {
+                            // One letter matches half the catalogue: wait for a second one.
+                            if (run === this.listRun) this.results = [];
+                            return;
+                        }
+
+                        const ref = text ? this.parseReference(text) : null;
 
                         if (ref) {
                             const hit = await this.resolve(ref);
 
-                            if (hit) {
-                                if (run !== this.searchRun) return;
+                            if (run !== this.listRun) return;
 
-                                found = [hit.set];
-                                this.results = found;
-                                this.searched = true;
+                            if (hit) {
+                                this.results = [hit.set];
                                 this.pickSet(hit.set, hit.mapId);
                                 return;
                             }
                         }
 
-                        const body = await this.api("search_beatmapsets", { q: text, limit: 12 });
+                        const params = Object.assign(this.filters(), text ? { q: text } : { sort: this.tab === "updated" ? "" : this.tab });
+                        const body = await this.api("search_beatmapsets", params);
 
-                        if (run !== this.searchRun) return;
+                        if (run !== this.listRun) return;
 
                         this.results = (body && body.results) || [];
-                        this.searched = true;
                     } catch (e) {
-                        if (run === this.searchRun) {
+                        if (run === this.listRun) {
                             this.results = [];
-                            this.searched = true;
-                            this.error = "The search failed. Try again.";
+                            this.error = "The map list could not be loaded. Try again.";
                         }
                     } finally {
-                        if (run === this.searchRun) this.searching = false;
+                        if (run === this.listRun) this.loadingList = false;
                     }
                 },
                 /** A link or id to its set (and difficulty). Null when this server has no such map. */
@@ -420,6 +499,13 @@
                     const fallback = this.sortedDiffs(item).slice().reverse()[0];
 
                     this.pickDiff(wanted || fallback || null);
+
+                    // Take the eye to the difficulty list: the card that was clicked is a long way up.
+                    this.$nextTick(() => {
+                        const el = this.$refs.step2;
+
+                        if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    });
                 },
                 pickDiff(d) {
                     this.diffId = d ? d.id : null;
@@ -536,7 +622,6 @@
                     }
 
                     this.set = body.beatmapset;
-                    this.results = [body.beatmapset];
                     this.diffId = row.beatmap_id;
                     this.rulesetId = row.ruleset_id;
                     this.date = row.date;
@@ -547,7 +632,11 @@
                     (row.required_mods || []).forEach(m => { mods[m.acronym] = "required"; });
                     this.mods = mods;
 
-                    this.$nextTick(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+                    this.$nextTick(() => {
+                        const el = this.$refs.step2;
+
+                        if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    });
                 },
                 async remove(row) {
                     // Two clicks: the first arms the button for a few seconds.
@@ -589,6 +678,7 @@
             },
             created() {
                 this.setTitle("Daily Challenge");
+                this.refresh();
                 this.loadSchedule();
             },
             unmounted() {
