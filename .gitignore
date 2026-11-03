@@ -39,3 +39,6 @@ desktop.ini
 plugins/*.jar
 plugins/data/
 libs/
+
+# runtime cache (cover thumbnails)
+/data/
