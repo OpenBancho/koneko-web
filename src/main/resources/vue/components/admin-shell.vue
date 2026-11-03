@@ -64,6 +64,7 @@
                 const all = [
                     { id: "overview", label: "Overview", href: "/admin" },
                     { id: "themes", label: "Event Themes", href: "/admin/themes" },
+                    { id: "daily", label: "Daily Challenge", href: "/admin/daily" },
                     { id: "requests", label: "Requests", href: "/admin/requests" },
                     { id: "moderation", label: "Moderation", href: "/admin/moderation" },
                     { id: "logs", label: "Logs", href: "/admin/logs" },
@@ -78,7 +79,7 @@
                 // roles the API does report, so the rule still comes from one place, and
                 // /admin/api/themes checks the privileges again regardless.
                 return all.filter(item => item.id === "overview"
-                    || (item.id === "themes" && this.mayManageThemes)
+                    || ((item.id === "themes" || item.id === "daily") && this.mayManageThemes)
                     || sections.indexOf(item.id) !== -1);
             },
 

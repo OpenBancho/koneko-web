@@ -119,6 +119,11 @@ public final class AdminRoutes {
         config.routes.post("/admin/api/themes/settings", AdminRoutes::saveThemeSettings);
         config.routes.post("/admin/api/themes/reset", AdminRoutes::resetTheme);
 
+        // The daily challenge lives in lazer.jar; the panel reaches it through here, with the website's own key.
+        config.routes.get("/admin/api/daily", AdminRoutes::getDaily);
+        config.routes.post("/admin/api/daily/set", AdminRoutes::setDaily);
+        config.routes.post("/admin/api/daily/remove", AdminRoutes::removeDaily);
+
         config.routes.get("/admin/api/{action}", AdminRoutes::read);
         config.routes.post("/admin/api/{action}", AdminRoutes::write);
         // The gate itself, which is the one thing here that works before the gate is open.
@@ -457,6 +462,140 @@ public final class AdminRoutes {
 
         ThemeService.deactivateTheme(session.getUsername());
         answerWithState(ctx);
+    }
+
+    // ------------------------------------------------------------------
+    // daily challenge (lazer.jar)
+    // ------------------------------------------------------------------
+
+    /**
+     * The same gate as the themes: what a daily challenge picks is played by everybody, which is not for a nominator's
+     * bit to reach. lazer.jar is asked with a key of the website's, not with the staff member's token, so this check
+     * is the only one standing between a request and lazer.jar - which is why it is the strict one.
+     *
+     * @return the session, or null when an answer has already been sent
+     */
+    private static UserSession dailySession(Context ctx) {
+        UserSession session = Auth.current(ctx);
+
+        if (!mayManageThemes(session)) {
+            ctx.status(403).json(Map.of("status",
+                    "The daily challenge can only be managed by an administrator or a developer."));
+            return null;
+        }
+
+        if (Verification.blocksApi(ctx, session) || StaffTwoFactor.blocksApi(ctx, session)) {
+            return null;
+        }
+
+        if (App.lazer == null || App.env.getLazerApiKey().isBlank()) {
+            ctx.status(503).json(Map.of("status",
+                    "lazer.jar is not linked: set LAZER_API_URL and LAZER_API_KEY in .env (and the same key in"
+                            + " lazer.jar's STAFF_API_KEYS)."));
+            return null;
+        }
+
+        return session;
+    }
+
+    private static void getDaily(Context ctx) {
+        if (dailySession(ctx) == null) {
+            return;
+        }
+
+        try {
+            JsonNode answer = App.lazer.request("GET", "/api/v2/daily-challenge/schedule", Map.of(), null, null,
+                    App.env.getLazerApiKey());
+
+            ctx.header("Cache-Control", "private, no-store");
+            ctx.json(answer);
+        } catch (ApiException e) {
+            fail(ctx, e, "daily");
+        }
+    }
+
+    private static void setDaily(Context ctx) {
+        UserSession session = dailySession(ctx);
+
+        if (session == null) {
+            return;
+        }
+
+        try {
+            JsonNode body = MAPPER.readTree(ctx.body());
+
+            // Only what the form is meant to send travels on; anything else in the request is dropped here.
+            Map<String, Object> clean = new LinkedHashMap<>();
+            clean.put("date", body.path("date").asText(""));
+            clean.put("beatmap_id", body.path("beatmap_id").asInt(0));
+            clean.put("ruleset_id", body.path("ruleset_id").asInt(0));
+            clean.put("required_mods", mods(body.path("required_mods")));
+            clean.put("allowed_mods", mods(body.path("allowed_mods")));
+
+            if ((int) clean.get("beatmap_id") <= 0) {
+                ctx.status(400).json(Map.of("status", "Pick a difficulty first."));
+                return;
+            }
+
+            JsonNode answer = App.lazer.request("PUT", "/api/v2/daily-challenge", Map.of(),
+                    MAPPER.writeValueAsString(clean), "application/json", App.env.getLazerApiKey());
+
+            logger.info("Staff <{}> set the daily challenge of {} to beatmap {} (ruleset {})",
+                    session.getUsername(), clean.get("date"), clean.get("beatmap_id"), clean.get("ruleset_id"));
+
+            ctx.header("Cache-Control", "private, no-store");
+            ctx.json(answer);
+        } catch (ApiException e) {
+            fail(ctx, e, "daily");
+        } catch (Exception e) {
+            ctx.status(400).json(Map.of("status", "The request could not be read."));
+        }
+    }
+
+    private static void removeDaily(Context ctx) {
+        UserSession session = dailySession(ctx);
+
+        if (session == null) {
+            return;
+        }
+
+        try {
+            String date = MAPPER.readTree(ctx.body()).path("date").asText("");
+
+            if (!date.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                ctx.status(400).json(Map.of("status", "A date is required."));
+                return;
+            }
+
+            JsonNode answer = App.lazer.request("DELETE", "/api/v2/daily-challenge", Map.of("date", date), null, null,
+                    App.env.getLazerApiKey());
+
+            logger.info("Staff <{}> removed the daily challenge of {}", session.getUsername(), date);
+
+            ctx.header("Cache-Control", "private, no-store");
+            ctx.json(answer);
+        } catch (ApiException e) {
+            fail(ctx, e, "daily");
+        } catch (Exception e) {
+            ctx.status(400).json(Map.of("status", "The request could not be read."));
+        }
+    }
+
+    /** A list of mods reduced to acronyms: [{"acronym":"HD"}]. Anything else in the objects is dropped. */
+    private static java.util.List<Map<String, String>> mods(JsonNode node) {
+        java.util.List<Map<String, String>> list = new java.util.ArrayList<>();
+
+        if (node != null && node.isArray()) {
+            for (JsonNode mod : node) {
+                String acronym = mod.path("acronym").asText("").toUpperCase();
+
+                if (acronym.matches("[A-Z0-9]{2,3}")) {
+                    list.add(Map.of("acronym", acronym));
+                }
+            }
+        }
+
+        return list;
     }
 
     private static void answerWithTheme(Context ctx, Map<String, Object> theme) {

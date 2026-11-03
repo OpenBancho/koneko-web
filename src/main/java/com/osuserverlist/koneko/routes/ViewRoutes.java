@@ -123,6 +123,8 @@ public final class ViewRoutes {
         // Narrower than the rest: the theme engine has no API behind it to authorise the
         // call a second time, so the page is gated on the same bits the routes are.
         config.routes.get("/admin/themes", themePage());
+        // Same audience as the themes: the daily challenge is chosen for every player at once.
+        config.routes.get("/admin/daily", themePage());
         config.routes.get("/admin/requests", panel);
         config.routes.get("/admin/moderation", panel);
         config.routes.get("/admin/moderation/{userId}", panel);
