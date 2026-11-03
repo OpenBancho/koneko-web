@@ -184,10 +184,10 @@
             </div>
         </section>
 
-        <section class="card" v-if="lazer.page">
+        <section class="card" v-if="userpage">
             <h2>About me</h2>
             <!-- Plain text on purpose: the text is written by the player, so it is never injected as HTML. -->
-            <p class="lazer-page">{{ lazer.page }}</p>
+            <p class="lazer-page">{{ userpage }}</p>
         </section>
 
         <section class="card" v-if="lazer.pinned.length">
@@ -460,6 +460,15 @@ app.component("profile-view", {
         },
         info() {
             return (this.player && this.player.info) || {};
+        },
+        /**
+         * What the player wrote about themselves in the site settings. It comes with the player card, so it does not
+         * depend on lazer.jar being linked; lazer.jar's copy of the same text is only a fallback.
+         */
+        userpage() {
+            const own = this.info.userpage_content;
+
+            return (own && String(own).trim()) ? own : (this.lazer.page || "");
         },
         /**
          * The custom badge, or nothing. Both halves are required, and the
