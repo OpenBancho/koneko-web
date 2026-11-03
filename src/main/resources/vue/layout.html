@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>koneko</title>
     <meta name="koneko-view" content="@routeName">
     
@@ -19,11 +19,17 @@
         integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer">
     
-    <link rel="stylesheet" href="/css/koneko.css?v=torus-font-1">
+    <link rel="stylesheet" href="/css/koneko.css?v=mobile-7">
 
     <link rel="stylesheet" href="/css/beatmaps.css?v=beatmaps-diffopen-8">
 
     <link rel="stylesheet" href="/css/home-panels.css?v=home-panels-13">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap">
+
+    <link rel="stylesheet" href="/css/osu-theme.css?v=theme-10">
 
 @pluginHead
 </head>
@@ -505,6 +511,27 @@
 
 <script>
     window.__konekoRoot = app.mount("#koneko-app");
+</script>
+
+<script>
+    // Navbar: full at the top of the page, compact once scrolled. Two thresholds so the bar does not
+    // flicker around a single scroll position.
+    (function navShrink() {
+        const root = document.documentElement;
+        let ticking = false;
+
+        function update() {
+            ticking = false;
+            const y = window.scrollY || 0;
+            if (y > 48) root.classList.add("nav-compact");
+            else if (y < 12) root.classList.remove("nav-compact");
+        }
+
+        window.addEventListener("scroll", function () {
+            if (!ticking) { ticking = true; window.requestAnimationFrame(update); }
+        }, { passive: true });
+        update();
+    })();
 </script>
 
 <script src="/js/turbo.js?v=turbo-1"></script>

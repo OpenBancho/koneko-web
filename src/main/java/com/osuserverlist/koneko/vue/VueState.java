@@ -39,6 +39,10 @@ public final class VueState {
         state.put("fastload", fastload());
         state.put("registration", registration());
 
+        // Whether lazer.jar is linked (LAZER_API_URL is set). Pages that explain lazer, such as how to connect,
+        // are only shown when there is a lazer server to connect to.
+        state.put("lazerEnabled", App.lazer != null);
+
         // What the plugins contribute to every page: their slots, their
         // navigation entries and their own state keys.
         UserSession session = Auth.current(ctx);

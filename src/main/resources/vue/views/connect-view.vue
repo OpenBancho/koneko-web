@@ -8,7 +8,7 @@
         <div class="connect-container">
             <!-- Hero Header -->
             <div class="connect-hero-header">
-                <div class="connect-badge-pill">🚀 Getting Started</div>
+                <div class="connect-badge-pill"><i class="fas fa-flag-checkered" aria-hidden="true"></i> Getting Started</div>
                 <h1 class="connect-main-title">How to connect to {{ site.name }}</h1>
                 <p class="connect-main-subtitle">
                     Follow these two simple steps to set up your game client, register your account, and start competing on the leaderboards.
@@ -37,7 +37,7 @@
                             </a>
                         </div>
                         <div class="connect-logged-status" v-else>
-                            <span class="status-check">✓</span>
+                            <span class="status-check"><i class="fas fa-check-circle" aria-hidden="true"></i></span>
                             <span>You are currently signed in as <strong>{{ user.name }}</strong></span>
                         </div>
                     </div>
@@ -54,52 +54,131 @@
                     </div>
 
                     <div class="connect-step-body">
-                        <div class="connect-timeline">
-                            <!-- Substep 2.1 -->
-                            <div class="connect-timeline-item">
-                                <div class="connect-timeline-marker">2.1</div>
-                                <div class="connect-timeline-content">
-                                    <h4>Close osu!</h4>
-                                    <p class="muted">Make sure the osu! game client is completely closed before launching with custom server arguments.</p>
-                                </div>
-                            </div>
+                        <p class="muted small connect-pick-hint" v-if="lazerEnabled">Pick the client you play on. Either one verifies the account on its first successful login.</p>
 
-                            <!-- Substep 2.2 -->
-                            <div class="connect-timeline-item">
-                                <div class="connect-timeline-marker">2.2</div>
-                                <div class="connect-timeline-content">
-                                    <h4>Start osu! with the server argument</h4>
-                                    <p class="muted">Launch your game client pointing to this server using the command line or a desktop shortcut:</p>
-                                    
-                                    <div class="connect-terminal-box">
-                                        <span class="connect-terminal-prompt">$</span>
-                                        <code class="connect-terminal-code">osu!.exe -devserver {{ domain }}</code>
-                                        <button class="button button-small button-ghost connect-copy-btn" type="button" @click="copyCommand">
-                                            <span v-if="copied">✓ Copied</span>
-                                            <span v-else>📋 Copy</span>
-                                        </button>
+                        <!-- osu! stable -->
+                        <details class="connect-spoiler" :class="{ 'connect-spoiler--single': !lazerEnabled }" :open="!lazerEnabled ? true : null">
+                            <summary class="connect-spoiler-summary">
+                                <span class="connect-spoiler-icon"><i class="fas fa-gamepad" aria-hidden="true"></i></span>
+                                <span class="connect-spoiler-title">
+                                    <strong>Stable connect</strong>
+                                    <small>The classic osu! client, started with a server argument</small>
+                                </span>
+                                <i class="fas fa-chevron-down connect-spoiler-caret" aria-hidden="true"></i>
+                            </summary>
+
+                            <div class="connect-spoiler-body">
+                                <div class="connect-timeline">
+                                    <div class="connect-timeline-item">
+                                        <div class="connect-timeline-marker">1</div>
+                                        <div class="connect-timeline-content">
+                                            <h4>Close osu!</h4>
+                                            <p class="muted">Make sure the osu! game client is completely closed before launching with custom server arguments.</p>
+                                        </div>
                                     </div>
 
-                                    <div class="connect-tip-box">
-                                        <span class="connect-tip-icon">💡</span>
-                                        <span class="connect-tip-text">
-                                            <strong>Shortcut tip:</strong> Right-click your desktop <code>osu!</code> shortcut &rarr; choose <strong>Properties</strong> &rarr; in the <strong>Target</strong> field add a space and <code>-devserver {{ domain }}</code> at the end.
-                                        </span>
+                                    <div class="connect-timeline-item">
+                                        <div class="connect-timeline-marker">2</div>
+                                        <div class="connect-timeline-content">
+                                            <h4>Start osu! with the server argument</h4>
+                                            <p class="muted">Launch your game client pointing to this server using the command line or a desktop shortcut:</p>
+
+                                            <div class="connect-terminal-box">
+                                                <span class="connect-terminal-prompt">$</span>
+                                                <code class="connect-terminal-code">osu!.exe -devserver {{ domain }}</code>
+                                                <button class="button button-small button-ghost connect-copy-btn" type="button" @click="copyText('osu!.exe -devserver ' + domain, 'stable')">
+                                                    <span v-if="copied === 'stable'"><i class="fas fa-check" aria-hidden="true"></i> Copied</span>
+                                                    <span v-else><i class="far fa-copy" aria-hidden="true"></i> Copy</span>
+                                                </button>
+                                            </div>
+
+                                            <div class="connect-tip-box">
+                                                <span class="connect-tip-icon"><i class="fas fa-lightbulb" aria-hidden="true"></i></span>
+                                                <span class="connect-tip-text">
+                                                    <strong>Shortcut tip:</strong> Right-click your desktop <code>osu!</code> shortcut &rarr; choose <strong>Properties</strong> &rarr; in the <strong>Target</strong> field add a space and <code>-devserver {{ domain }}</code> at the end.
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="connect-timeline-item">
+                                        <div class="connect-timeline-marker">3</div>
+                                        <div class="connect-timeline-content">
+                                            <h4>Log in to activate your account</h4>
+                                            <p class="muted">
+                                                Enter your registered username and password in the game. Upon your first successful in-game login, your account will be activated and verified automatically!
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        </details>
 
-                            <!-- Substep 2.3 -->
-                            <div class="connect-timeline-item">
-                                <div class="connect-timeline-marker">2.3</div>
-                                <div class="connect-timeline-content">
-                                    <h4>Log in to activate your account</h4>
-                                    <p class="muted">
-                                        Enter your registered username and password in the game. Upon your first successful in-game login, your account will be activated and verified automatically!
-                                    </p>
+                        <!-- osu!lazer -->
+                        <details class="connect-spoiler" v-if="lazerEnabled">
+                            <summary class="connect-spoiler-summary">
+                                <span class="connect-spoiler-icon"><i class="fas fa-bolt" aria-hidden="true"></i></span>
+                                <span class="connect-spoiler-title">
+                                    <strong>Lazer connect</strong>
+                                    <small>The osu!lazer based client (jarsu)</small>
+                                </span>
+                                <i class="fas fa-chevron-down connect-spoiler-caret" aria-hidden="true"></i>
+                            </summary>
+
+                            <div class="connect-spoiler-body">
+                                <div class="connect-timeline">
+                                    <div class="connect-timeline-item">
+                                        <div class="connect-timeline-marker">1</div>
+                                        <div class="connect-timeline-content">
+                                            <h4>Download the lazer client</h4>
+                                            <p class="muted">Regular osu!lazer cannot connect to a private server. Use <strong>jarsu</strong>, a build made for it. Only the Windows version is available for now.</p>
+
+                                            <div class="connect-download-row">
+                                                <a class="button" :href="lazerDownload" target="_blank" rel="noopener">
+                                                    <i class="fas fa-download" aria-hidden="true"></i> Download jarsu for Windows
+                                                </a>
+                                                <span class="muted small">win-x64-jarsu.zip, from GitHub Releases</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="connect-timeline-item">
+                                        <div class="connect-timeline-marker">2</div>
+                                        <div class="connect-timeline-content">
+                                            <h4>Unpack and start it</h4>
+                                            <p class="muted">Extract the archive into a folder of its own and run the game from there. It keeps its data apart from a regular osu!lazer install.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="connect-timeline-item">
+                                        <div class="connect-timeline-marker">3</div>
+                                        <div class="connect-timeline-content">
+                                            <h4>Point it at this server</h4>
+                                            <p class="muted">Open the game settings and set the server endpoint to the address of this server:</p>
+
+                                            <div class="connect-terminal-box">
+                                                <span class="connect-terminal-prompt"><i class="fas fa-link" aria-hidden="true"></i></span>
+                                                <code class="connect-terminal-code">{{ domain }}</code>
+                                                <button class="button button-small button-ghost connect-copy-btn" type="button" @click="copyText(domain, 'lazer')">
+                                                    <span v-if="copied === 'lazer'"><i class="fas fa-check" aria-hidden="true"></i> Copied</span>
+                                                    <span v-else><i class="far fa-copy" aria-hidden="true"></i> Copy</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="connect-timeline-item">
+                                        <div class="connect-timeline-marker">4</div>
+                                        <div class="connect-timeline-content">
+                                            <h4>Log in to activate your account</h4>
+                                            <p class="muted">
+                                                Sign in with the username and password you registered on the website. The first successful login activates and verifies the account, the same as in the stable client.
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        </details>
                     </div>
                 </section>
             </div>
@@ -112,7 +191,7 @@
                         <p class="muted">Our friendly community and staff team are available 24/7 on Discord to help you troubleshoot.</p>
                     </div>
                     <a class="button button-ghost connect-support-btn" :href="discord" target="_blank" rel="noopener">
-                        💬 Join our Discord
+                        <i class="fab fa-discord" aria-hidden="true"></i> Join our Discord
                     </a>
                 </div>
             </div>
@@ -129,7 +208,8 @@
     app.component("connect-view", {
         template: "#connect-view",
         data: () => ({
-            copied: false
+            copied: "",
+            lazerDownload: "https://github.com/OpenBancho/jarsu/releases/tag/main"
         }),
         computed: {
             site() {
@@ -141,6 +221,9 @@
             user() {
                 return this.$koneko.user;
             },
+            lazerEnabled() {
+                return !!this.$koneko.lazerEnabled;
+            },
             registration() {
                 return this.$koneko.registration || { enabled: true };
             },
@@ -149,26 +232,26 @@
             }
         },
         methods: {
-            async copyCommand() {
-                const cmd = "osu!.exe -devserver " + this.domain;
-                try {
-                    await navigator.clipboard.writeText(cmd);
-                    this.copied = true;
+            async copyText(text, key) {
+                const done = () => {
+                    this.copied = key;
                     setTimeout(() => {
-                        this.copied = false;
+                        if (this.copied === key) this.copied = "";
                     }, 2500);
+                };
+
+                try {
+                    await navigator.clipboard.writeText(text);
                 } catch (e) {
                     const input = document.createElement("input");
-                    input.value = cmd;
+                    input.value = text;
                     document.body.appendChild(input);
                     input.select();
                     document.execCommand("copy");
                     document.body.removeChild(input);
-                    this.copied = true;
-                    setTimeout(() => {
-                        this.copied = false;
-                    }, 2500);
                 }
+
+                done();
             }
         },
         created() {

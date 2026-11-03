@@ -3,7 +3,7 @@
          bar every page already renders rather than something each page has to
          remember to include. It renders nothing at all unless the account
          looking at the page is restricted. -->
-    <header class="nav">
+    <header class="nav" :class="{ 'is-collapsed': collapsed }">
         <div class="nav-inner">
             <a class="nav-brand" href="/">
                 <span class="nav-logo">
@@ -17,24 +17,31 @@
                 </span>
             </a>
 
-            <!-- One list, built from the core entries and the ones plugins
-                 added, sorted by order. A plugin can hide any of them by id,
-                 so a core link can be replaced rather than duplicated. -->
-            <nav class="nav-links">
-                <a v-for="item in navLinks" :key="item.id" :href="item.href"
-                    :target="item.external ? '_blank' : null"
-                    :rel="item.external ? 'noopener' : null">{{ item.label }}</a>
+            <!-- On a phone the links and the search fold away while the page is
+                 scrolled down and unfold again on the way up (see .nav-extra).
+                 On a wide screen the wrapper is transparent to the layout. -->
+            <div class="nav-extra">
+                <div class="nav-extra-inner">
+                <!-- One list, built from the core entries and the ones plugins
+                     added, sorted by order. A plugin can hide any of them by id,
+                     so a core link can be replaced rather than duplicated. -->
+                <nav class="nav-links">
+                    <a v-for="item in navLinks" :key="item.id" :href="item.href"
+                        :target="item.external ? '_blank' : null"
+                        :rel="item.external ? 'noopener' : null">{{ item.label }}</a>
 
-                <koneko-slot name="nav.links"></koneko-slot>
-            </nav>
+                    <koneko-slot name="nav.links"></koneko-slot>
+                </nav>
 
-            <!-- A player search in the bar itself: looking someone up is the
-                 thing people come here to do most often, and it should not need
-                 a page of its own to start. -->
-            <form class="nav-search" @submit.prevent="searchPlayers">
-                <input class="nav-search-input" type="search" v-model="query"
-                    placeholder="Find a player" aria-label="Find a player">
-            </form>
+                <!-- A player search in the bar itself: looking someone up is the
+                     thing people come here to do most often, and it should not need
+                     a page of its own to start. -->
+                <form class="nav-search" @submit.prevent="searchPlayers">
+                    <input class="nav-search-input" type="search" v-model="query"
+                        placeholder="Find a player" aria-label="Find a player">
+                </form>
+                </div>
+            </div>
 
             <div class="nav-actions">
                 <!-- Everything that belongs to the person rather than to the site
@@ -99,7 +106,10 @@
         template: "#site-nav",
         data: () => ({
             query: "",
-            menuOpen: false
+            menuOpen: false,
+            collapsed: false,
+            lastY: 0,
+            lockedUntil: 0
         }),
         computed: {
             site() {
@@ -189,6 +199,32 @@
             closeMenu() {
                 this.menuOpen = false;
             },
+            // Down folds the bar, up unfolds it, and the very top always shows
+            // it in full. A few pixels of slack and a short pause after each
+            // change keep it from flickering: folding it shortens the page,
+            // which on its own can nudge the scroll position back up.
+            onScroll() {
+                const y = window.scrollY || 0;
+                const now = Date.now();
+                const delta = y - this.lastY;
+
+                if (y <= 24) {
+                    this.collapsed = false;
+                    this.lastY = y;
+                    return;
+                }
+
+                if (now < this.lockedUntil || Math.abs(delta) < 10) return;
+
+                const next = delta > 0;
+
+                if (next !== this.collapsed) {
+                    this.collapsed = next;
+                    this.lockedUntil = now + 300;
+                }
+
+                this.lastY = y;
+            },
             onKey(event) {
                 if (event.key === "Escape") {
                     this.menuOpen = false;
@@ -203,10 +239,13 @@
         mounted() {
             document.addEventListener("click", this.closeMenu);
             document.addEventListener("keydown", this.onKey);
+            window.addEventListener("scroll", this.onScroll, { passive: true });
+            this.lastY = window.scrollY || 0;
         },
         unmounted() {
             document.removeEventListener("click", this.closeMenu);
             document.removeEventListener("keydown", this.onKey);
+            window.removeEventListener("scroll", this.onScroll);
         }
     });
 </script>

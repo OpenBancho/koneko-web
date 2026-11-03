@@ -1,0 +1,676 @@
+/*
+ * Site theme for koneko-web (a lazer-style server site).
+ *
+ * Tokens:
+ *   page #202026, panel #302e38, inset #25232b / #1c1a22, hairline white 5%,
+ *   text #f5f6f8, dim white 58%, accent hsl(255 100% 70%) = osu!lazer's Purple hue,
+ *   panels 22px radius with 24px padding and a soft 0 18 36 shadow, nested cards 15-18px,
+ *   controls 10px, hero buttons are pills, nav items 36px high / 600 weight,
+ *   tabs 12px 24px / 700 weight, font M PLUS Rounded 1c.
+ *
+ * Loaded after every other stylesheet, so it restates the tokens and the shared
+ * components; page-specific CSS keeps working on top of it.
+ */
+
+:root {
+    --page-bg: #202026;
+    --panel: #302e38;
+    --inset: #25232b;
+    --inset-deep: #1c1a22;
+    --hair: rgba(255, 255, 255, 0.05);
+    --hair-strong: rgba(255, 255, 255, 0.08);
+
+    --bg: var(--page-bg);
+    --bg-alt: var(--page-bg);
+    --bg-card: var(--panel);
+    --bg-panel: var(--panel);
+    --bg-soft: var(--inset);
+
+    --text: #f5f6f8;
+    --text-soft: rgba(255, 255, 255, 0.86);
+    --muted: rgba(255, 255, 255, 0.58);
+
+    --accent: #8c66ff;
+    --accent-soft: #a98cff;
+    --accent-dark: #7a52f0;
+    --accent-ink: #ffffff;
+    --accent-tint: rgba(140, 102, 255, 0.16);
+
+    --border: var(--hair);
+    --line: var(--hair);
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 22px;
+
+    --danger: #ff6b81;
+    --shadow: 0 18px 36px rgba(0, 0, 0, 0.18);
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body {
+    background: var(--page-bg);
+    color: var(--text);
+    /* Torus (the original face) leads; M PLUS Rounded 1c covers whatever Torus lacks (Cyrillic, Japanese). */
+    font-family: "Torus", "M PLUS Rounded 1c", "Yu Gothic UI", "Hiragino Sans", Meiryo, "Segoe UI", sans-serif;
+    font-size: 16px;
+}
+
+::selection {
+    background: rgba(140, 102, 255, 0.45);
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+a {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.button,
+.button-ghost,
+.button-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 20px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-size: 14.4px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: none;
+    transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), transform 0.18s var(--ease),
+        filter 0.18s var(--ease);
+}
+
+.button:hover:not(:disabled),
+.button-ghost:hover:not(:disabled),
+.button-danger:hover:not(:disabled) {
+    filter: none;
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
+.button:hover:not(:disabled) {
+    background: var(--accent-soft);
+}
+
+.button:active:not(:disabled),
+.button-ghost:active:not(:disabled),
+.button-danger:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.button:disabled,
+.button-ghost:disabled,
+.button-danger:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.button-ghost,
+.button-quiet {
+    border-color: var(--hair);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+}
+
+.button-ghost:hover:not(:disabled) {
+    border-color: var(--hair-strong);
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.button-danger,
+.button-danger:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--danger);
+    color: #fff;
+}
+
+.button-small {
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 13.6px;
+    border-radius: 10px;
+}
+
+/* hero actions are big pills on the reference site */
+.hero-actions .button,
+.hero-actions .button-ghost {
+    min-height: 52px;
+    padding: 0 28px;
+    border-radius: 999px;
+    font-size: 16px;
+}
+
+.link-button {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+/* ----------------------------------------------------------------- fields */
+
+form input,
+.filter-input,
+.filter-select,
+.field select,
+.field input,
+.nav-search-input,
+.search-field-input,
+textarea {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    background: var(--inset);
+    color: var(--text);
+    font: inherit;
+    font-size: 14.4px;
+    box-shadow: none;
+    transition: border-color 0.18s var(--ease), background-color 0.18s var(--ease);
+}
+
+textarea,
+.stack textarea,
+textarea.filter-input {
+    padding: 12px 14px;
+}
+
+form input::placeholder,
+.filter-input::placeholder,
+.nav-search-input::placeholder,
+.search-field-input::placeholder,
+textarea::placeholder {
+    color: var(--muted);
+    opacity: 1;
+}
+
+form input:hover:not(:disabled),
+.filter-input:hover:not(:disabled),
+.filter-select:hover:not(:disabled),
+.field select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+    border-color: var(--hair-strong);
+    background: var(--inset);
+}
+
+form input:focus,
+.filter-input:focus,
+.filter-select:focus,
+.field select:focus,
+.field input:focus,
+.nav-search-input:focus,
+.search-field-input:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--inset-deep);
+    box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+    min-height: 0;
+    accent-color: var(--accent);
+}
+
+/* ----------------------------------------------------------------- panels */
+
+.card,
+.mode-bar {
+    padding: 24px;
+    border: 1px solid var(--hair);
+    border-radius: 22px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+}
+
+.mode-bar {
+    padding: 10px;
+}
+
+/* nested cards sit one step down: lighter wash, 15-18px corners */
+.stat-card,
+.mapset-card {
+    border: 1px solid var(--hair);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.035);
+    box-shadow: none;
+}
+
+.card-danger {
+    border-color: rgba(255, 107, 129, 0.45);
+}
+
+.card h2,
+.card h3 {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+
+h1 {
+    font-weight: 800;
+}
+
+.badge,
+.badge-rank {
+    border-radius: 999px;
+}
+
+/* ----------------------------------------------------------------- tables */
+
+.table th {
+    border-bottom: 1px solid var(--hair);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.table td {
+    border-bottom: 1px solid var(--hair);
+    font-size: 14.4px;
+}
+
+.table tbody tr:hover td {
+    background: rgba(140, 102, 255, 0.07);
+}
+
+/* -------------------------------------------------------------------- nav */
+
+.nav {
+    border-bottom: 1px solid var(--hair);
+    background: #1e1e1e;
+    box-shadow: none;
+}
+
+.nav-name {
+    font-weight: 800;
+}
+
+.nav-links a,
+.nav-user,
+.nav-menu-trigger {
+    min-height: 36px;
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 14.4px;
+    font-weight: 600;
+    transition: background-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.nav-links a:hover,
+.nav-user:hover {
+    background: var(--hair-strong);
+    color: var(--text);
+    text-decoration: none;
+}
+
+.nav-menu-trigger,
+.nav-menu-trigger:hover,
+.nav-menu-trigger.is-open {
+    border-color: transparent;
+    border-radius: 12px;
+    color: var(--text);
+}
+
+.nav-menu-trigger {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.nav-menu-trigger:hover,
+.nav-menu-trigger.is-open {
+    background: var(--hair-strong);
+}
+
+.nav-menu-panel {
+    padding: 8px;
+    border: 1px solid var(--hair);
+    border-radius: 16px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+}
+
+.nav-menu-item {
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: 14.4px;
+    font-weight: 600;
+}
+
+.nav-menu-item:hover {
+    background: var(--accent-tint);
+    color: var(--text);
+}
+
+.nav-menu-item.is-danger {
+    color: var(--danger);
+}
+
+.nav-menu-item.is-danger:hover {
+    background: rgba(255, 107, 129, 0.16);
+    color: var(--danger);
+}
+
+/* -------------------------------------------------------------- mode tabs */
+
+.mode-tab,
+.mode-variant {
+    padding: 12px 24px;
+    border: 1px solid var(--hair);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 700;
+    transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease);
+}
+
+.mode-tab:hover:not(:disabled),
+.mode-variant:hover:not(:disabled) {
+    border-color: var(--hair-strong);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.mode-tab.active,
+.mode-tab.active:hover,
+.mode-variant.active,
+.mode-variant.active:hover {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+
+/* ---------------------------------------------------------------- scrolls */
+
+* {
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .button,
+    .button-ghost,
+    .button-danger {
+        transition: none;
+        transform: none;
+    }
+}
+
+/* ----------------------------------------------- navbar: full, then compact */
+
+/*
+ * The bar's height never changes, so nothing below it moves when it shrinks. What changes is
+ * the surface drawn behind it (::before), the row on top of it, the logo and the tagline.
+ * <html> gets .nav-compact from the scroll script in layout.html.
+ */
+.nav {
+    border-bottom: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+.nav::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    border-bottom: 1px solid var(--hair);
+    background: #1e1e1e;
+    transition: height 0.35s var(--ease), background-color 0.35s var(--ease), box-shadow 0.35s var(--ease),
+        border-radius 0.35s var(--ease);
+}
+
+.nav-inner {
+    position: relative;
+    min-height: 64px;
+    padding-top: 0;
+    padding-bottom: 0;
+    transition: transform 0.35s var(--ease);
+}
+
+.nav-logo {
+    transition: transform 0.35s var(--ease);
+    transform-origin: left center;
+}
+
+.nav-tagline {
+    max-height: 20px;
+    overflow: hidden;
+    transition: max-height 0.35s var(--ease), opacity 0.25s var(--ease);
+}
+
+.nav-search-input {
+    transition: border-color 0.18s var(--ease), background-color 0.18s var(--ease), min-height 0.35s var(--ease);
+}
+
+.nav-compact .nav::before {
+    height: calc(100% - 14px);
+    background: rgba(30, 30, 30, 0.88);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.nav-compact .nav-inner {
+    transform: translateY(-7px);
+}
+
+.nav-compact .nav-logo {
+    transform: scale(0.82);
+}
+
+.nav-compact .nav-tagline {
+    max-height: 0;
+    opacity: 0;
+}
+
+.nav-compact .nav-search-input {
+    min-height: 34px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav::before,
+    .nav-inner,
+    .nav-logo,
+    .nav-tagline,
+    .nav-search-input {
+        transition: none;
+    }
+}
+
+/* <site-nav> is only a mount point; as a box of its own it would be the limit of the sticky bar. */
+site-nav {
+    display: contents;
+}
+
+/*
+ * koneko.css ends with `body { overflow-x: hidden }`. That makes <body> a scroll container of its
+ * own, and a sticky bar then sticks to a box that never scrolls - i.e. it does not stick at all.
+ * `clip` hides the same sideways overflow without creating a scroll container.
+ */
+body {
+    overflow-x: clip;
+}
+
+/* ----------------------------------------------- navbar width, icons on the connect page */
+
+/*
+ * The bar used to take the width of whatever page it sat in, so on a narrow page (How to connect is
+ * ~860px) the brand, links, search box and buttons did not fit and the search field ran over "Sign up".
+ * It now has one width everywhere, lined up with the footer, and the row can never overlap itself.
+ */
+.nav {
+    padding: 0 max(20px, calc(50vw - 561px));
+}
+
+.nav-inner {
+    max-width: none;
+    gap: 16px;
+}
+
+.nav-links {
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.nav-actions {
+    flex-shrink: 0;
+}
+
+.connect-badge-pill i,
+.connect-support-btn i,
+.connect-copy-btn i {
+    margin-right: 4px;
+}
+
+.status-check {
+    color: #4ade80;
+}
+
+.connect-tip-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    margin-top: -2px;
+    border-radius: 8px;
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-size: 0.9rem;
+}
+
+/* ------------------------------------------------ connect page: client spoilers */
+
+.connect-pick-hint {
+    margin: 0 0 14px;
+}
+
+.connect-spoiler {
+    border: 1px solid var(--hair);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.035);
+    overflow: hidden;
+}
+
+.connect-spoiler + .connect-spoiler {
+    margin-top: 12px;
+}
+
+.connect-spoiler-summary {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    transition: background-color 0.18s var(--ease);
+}
+
+.connect-spoiler-summary::-webkit-details-marker {
+    display: none;
+}
+
+.connect-spoiler-summary:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.connect-spoiler-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-size: 1.05rem;
+}
+
+.connect-spoiler-title {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.connect-spoiler-title strong {
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.connect-spoiler-title small {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.connect-spoiler-caret {
+    color: var(--muted);
+    transition: transform 0.25s var(--ease);
+}
+
+.connect-spoiler[open] > .connect-spoiler-summary .connect-spoiler-caret {
+    transform: rotate(180deg);
+}
+
+.connect-spoiler[open] > .connect-spoiler-summary {
+    border-bottom: 1px solid var(--hair);
+}
+
+.connect-spoiler-body {
+    padding: 20px 20px 22px;
+}
+
+.connect-download-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin-top: 12px;
+}
+
+.connect-terminal-prompt i {
+    font-size: 0.8rem;
+}
+
+/* Without a lazer server there is only one way to connect, so it is shown plainly instead of as a spoiler. */
+.connect-spoiler--single {
+    border: none;
+    background: none;
+    overflow: visible;
+}
+
+.connect-spoiler--single > .connect-spoiler-summary {
+    display: none;
+}
+
+.connect-spoiler--single > .connect-spoiler-body {
+    padding: 0;
+}

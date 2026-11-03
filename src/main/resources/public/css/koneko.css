@@ -6679,3 +6679,375 @@ body {
 .daily-field select.filter-input {
     width: 170px;
 }
+
+/* ==========================================================================
+   Mobile pass, kept last so it wins over everything above.
+
+   The navigation was a single non-wrapping row (brand, links, search,
+   account), which on a phone is wider than the screen. Here it becomes two
+   rows: brand + account on top, then search, then the links as a strip that
+   scrolls sideways instead of overflowing the page.
+   ========================================================================== */
+
+@media (max-width: 760px) {
+    .page {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .nav-inner {
+        flex-wrap: wrap;
+        gap: 10px 12px;
+        padding: 10px 0;
+    }
+
+    .nav-brand {
+        order: 1;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .nav-brand-text {
+        min-width: 0;
+    }
+
+    .nav-name,
+    .nav-tagline {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .nav-actions {
+        order: 2;
+        flex: 0 0 auto;
+    }
+
+    .nav-search {
+        order: 3;
+        flex: 1 1 100%;
+    }
+
+    .nav-search .nav-search-input {
+        width: 100%;
+        font-size: 16px; /* below 16px iOS zooms the page on focus */
+    }
+
+    .nav-links {
+        order: 4;
+        flex: 1 1 100%;
+        display: flex;
+        justify-content: flex-start;
+        gap: 2px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        margin: 0 -14px;
+        padding: 0 14px 2px;
+    }
+
+    .nav-links::-webkit-scrollbar {
+        display: none;
+    }
+
+    .nav-links a {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    /* The account name would only fight the brand for room; the avatar is
+       enough to open the menu. */
+    .nav-menu-name,
+    .nav-menu-caret {
+        display: none;
+    }
+
+    .nav-menu-panel {
+        position: fixed;
+        top: auto;
+        right: 12px;
+        left: 12px;
+        min-width: 0;
+    }
+
+    /* Tables scroll inside themselves instead of widening the page. */
+    .table {
+        display: block;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table th,
+    .table td {
+        white-space: nowrap;
+    }
+
+    .card {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .filters > *,
+    .filter-input,
+    .filter-select {
+        flex: 1 1 100%;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .filter-input,
+    .filter-select,
+    .field input,
+    .field select,
+    .field textarea {
+        font-size: 16px;
+    }
+
+    .daily-field select.filter-input {
+        width: 100%;
+    }
+
+    .mapset-grid,
+    .player-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin-dialog {
+        max-width: calc(100vw - 24px);
+    }
+
+    img,
+    video,
+    canvas,
+    svg {
+        max-width: 100%;
+    }
+
+    pre,
+    code {
+        overflow-wrap: anywhere;
+    }
+
+    pre {
+        overflow-x: auto;
+    }
+}
+
+@media (max-width: 420px) {
+    .hero h1 {
+        font-size: 1.7rem;
+    }
+
+    .footer-links {
+        margin-left: 0;
+        flex-wrap: wrap;
+    }
+}
+
+/* ==========================================================================
+   Safe areas. With viewport-fit=cover the page runs under the notch, the
+   rounded corners and the home indicator, so the edges are padded by the
+   amount the device reports (0 on screens without them).
+   ========================================================================== */
+
+.page {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+}
+
+.nav {
+    padding-top: env(safe-area-inset-top);
+    padding-left: max(calc(50vw - 50%), env(safe-area-inset-left));
+    padding-right: max(calc(50vw - 50%), env(safe-area-inset-right));
+}
+
+.footer {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.admin-dialog-backdrop {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
+@media (max-width: 760px) {
+    .page {
+        padding-left: max(14px, env(safe-area-inset-left));
+        padding-right: max(14px, env(safe-area-inset-right));
+    }
+
+    .nav-links {
+        margin-left: calc(-1 * max(14px, env(safe-area-inset-left)));
+        margin-right: calc(-1 * max(14px, env(safe-area-inset-right)));
+        padding-left: max(14px, env(safe-area-inset-left));
+        padding-right: max(14px, env(safe-area-inset-right));
+    }
+
+    .nav-menu-panel {
+        left: max(12px, env(safe-area-inset-left));
+        right: max(12px, env(safe-area-inset-right));
+        bottom: max(12px, env(safe-area-inset-bottom));
+    }
+}
+
+/* ==========================================================================
+   Mobile: mode bar and profile header.
+
+   Selectors are deliberately more specific than the ones in home-panels.css,
+   which is loaded after this file and would otherwise win on ties.
+   ========================================================================== */
+
+@media (max-width: 640px) {
+    /* Modes as a 2x2 grid so every label fits in full; variants as one row
+       of three. The active one keeps its filled background. */
+    .mode-bar .mode-tabs,
+    .mode-bar .mode-variants {
+        display: grid;
+        gap: 6px;
+        margin: 0;
+        width: 100%;
+    }
+
+    .mode-bar .mode-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mode-bar .mode-variants {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .mode-bar .mode-tab,
+    .mode-bar .mode-variant {
+        padding: 10px 6px;
+        font-size: 13px;
+        text-align: center;
+        overflow: visible;
+        text-overflow: clip;
+    }
+
+    /* The header stacks and centres: the avatar straddles the banner in the
+       middle, with the name and badges under it. */
+    .profile-card .profile-top .profile-head {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+        padding: 0 16px;
+        text-align: center;
+    }
+
+    .profile-card .profile-top .profile-head .profile-avatar {
+        align-self: center;
+        width: 104px;
+        height: 104px;
+        margin: -52px auto 0;
+    }
+
+    .profile-card .profile-top .profile-identity {
+        width: 100%;
+        padding-bottom: 0;
+    }
+
+    .profile-card .profile-top .profile-name {
+        overflow-wrap: anywhere;
+    }
+
+    .profile-card .profile-top .profile-meta-row {
+        justify-content: center;
+    }
+
+    .profile-card .profile-top .profile-actions {
+        margin: 0;
+        justify-content: center;
+    }
+
+    .profile-card .profile-top .profile-cover {
+        aspect-ratio: 3 / 1;
+    }
+
+    .profile-card .profile-ranks,
+    .profile-card .profile-quick {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+}
+
+/* Mobile navigation: while the page is scrolled down the bar keeps only its
+   top row (brand and account); scrolling up brings the search box and the
+   section links back. The folding is a height transition on a grid row, so
+   the page below slides instead of jumping. On a wide screen the wrappers
+   are transparent to the layout. */
+.nav-extra,
+.nav-extra-inner {
+    display: contents;
+}
+
+@media (max-width: 760px) {
+    .nav .nav-inner {
+        flex-wrap: wrap;
+        row-gap: 0;
+    }
+
+    .nav .nav-extra {
+        display: grid;
+        order: 3;
+        flex: 1 1 100%;
+        grid-template-rows: 1fr;
+        transition: grid-template-rows 0.2s ease-out;
+    }
+
+    .nav .nav-extra-inner {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 0;
+        overflow: hidden;
+        padding-top: 10px;
+        transition: padding-top 0.2s ease-out, opacity 0.15s ease-out;
+    }
+
+    .nav .nav-extra-inner > * {
+        flex: 0 0 auto;
+        order: 0;
+    }
+
+    .nav .nav-extra-inner .nav-links {
+        margin: 0;
+        padding: 0 0 2px;
+    }
+
+    .nav.is-collapsed .nav-extra {
+        grid-template-rows: 0fr;
+    }
+
+    .nav.is-collapsed .nav-extra-inner {
+        padding-top: 0;
+        opacity: 0;
+    }
+}
+
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+    .nav .nav-extra,
+    .nav .nav-extra-inner {
+        transition: none;
+    }
+}
+
+/* The account menu drops down under the avatar on a phone too. It was
+   fixed to the bottom of the screen, but the bar has its own containing
+   block for fixed children, which put the panel above the top edge. */
+@media (max-width: 760px) {
+    .nav .nav-menu-panel {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        left: auto;
+        bottom: auto;
+        width: min(260px, calc(100vw - 28px));
+        min-width: 0;
+    }
+}

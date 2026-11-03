@@ -42,3 +42,7 @@ libs/
 
 # runtime cache (cover thumbnails)
 /data/
+
+# ---- saved login sessions (hold API tokens) ----
+data/sessions.json
+data/sessions.json.tmp

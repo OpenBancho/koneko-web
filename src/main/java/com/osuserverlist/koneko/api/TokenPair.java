@@ -31,6 +31,17 @@ public final class TokenPair {
         this.refreshExpiresAt = now.plusSeconds(refreshExpiresInSeconds);
     }
 
+    /** Rebuilds a pair that was saved earlier, keeping its original expiry times. */
+    public TokenPair(String accessToken, String refreshToken, String scope,
+            Instant accessExpiresAt, Instant refreshExpiresAt) {
+
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
+        this.scope = scope == null ? "" : scope;
+        this.accessExpiresAt = accessExpiresAt;
+        this.refreshExpiresAt = refreshExpiresAt;
+    }
+
     /**
      * True when the access token is gone, or close enough to it that a request
      * started now could arrive after it expired.

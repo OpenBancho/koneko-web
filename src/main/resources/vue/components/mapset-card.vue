@@ -37,7 +37,7 @@
                 </button>
 
                 <!-- Circular audio progress -->
-                <div class="beatmapset-panel__play-progress" v-if="isPlaying || isLoading">
+                <div class="beatmapset-panel__play-progress" v-if="isPlaying || isLoading || playProgress > 0">
                     <svg class="circular-progress" viewBox="0 0 36 36">
                         <path class="circular-progress__bg"
                               d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -228,8 +228,54 @@
             isPlaying: false,
             isLoading: false,
             progress: 0,
-            element: null
+            element: null,
+            raf: 0
         });
+    }
+
+    // Preview clips already asked for, newest last. A clip that was hovered or played is kept, so pressing
+    // play again (or after hovering) starts at once instead of fetching it again.
+    if (!window.__konekoAudioCache) {
+        window.__konekoAudioCache = new Map();
+    }
+
+    const AUDIO_CACHE_LIMIT = 12;
+
+    const PREVIEW_GUESS_SECONDS = 10;
+
+    function previewAudio(setId) {
+        const cache = window.__konekoAudioCache;
+        let audio = cache.get(setId);
+
+        if (audio) {
+            cache.delete(setId);
+            cache.set(setId, audio);
+            return audio;
+        }
+
+        audio = new Audio();
+        audio.preload = "auto";
+        audio.src = "/audio/preview/" + setId + ".mp3";
+        cache.set(setId, audio);
+
+        while (cache.size > AUDIO_CACHE_LIMIT) {
+            const oldestId = cache.keys().next().value;
+            const oldest = cache.get(oldestId);
+            const state = window.__konekoBeatmapAudio;
+
+            // never drop the clip that is playing
+            if (state.element === oldest) {
+                cache.delete(oldestId);
+                cache.set(oldestId, oldest);
+                break;
+            }
+
+            oldest.removeAttribute("src");
+            oldest.load();
+            cache.delete(oldestId);
+        }
+
+        return audio;
     }
 
     app.component("mapset-card", {
@@ -240,7 +286,8 @@
         data() {
             return {
                 popupVisible: false,
-                popupTimer: null
+                popupTimer: null,
+                prefetchTimer: null
             };
         },
         computed: {
@@ -295,6 +342,7 @@
             }
         },
         beforeUnmount() {
+            clearTimeout(this.prefetchTimer);
             clearTimeout(this.popupTimer);
             if (this.audioState.activeSetId === this.set.set_id) {
                 this.stopAudio();
@@ -302,12 +350,17 @@
         },
         methods: {
             openPopup() {
+                // The pointer resting on a card is the best hint that play comes next: start fetching the clip now.
+                clearTimeout(this.prefetchTimer);
+                this.prefetchTimer = setTimeout(() => previewAudio(this.set.set_id), 150);
+
                 clearTimeout(this.popupTimer);
                 this.popupTimer = setTimeout(() => {
                     this.popupVisible = true;
                 }, 100);
             },
             closePopup() {
+                clearTimeout(this.prefetchTimer);
                 clearTimeout(this.popupTimer);
                 this.popupVisible = false;
             },
@@ -350,74 +403,172 @@
                 const state = this.audioState;
                 const setId = this.set.set_id;
 
-                if (state.activeSetId === setId && state.isPlaying) {
-                    this.pauseAudio();
+                if (state.activeSetId === setId && state.element) {
+                    if (state.isPlaying || state.isLoading) {
+                        this.pauseAudio();
+                    } else {
+                        // paused: carry on from where it stopped instead of starting over
+                        this.resumeAudio();
+                    }
                     return;
                 }
 
                 this.playAudio();
+            },
+            detach(audio) {
+                audio.onplaying = null;
+                audio.onpause = null;
+                audio.onwaiting = null;
+                audio.onended = null;
+                audio.onerror = null;
+            },
+            // The bar follows the clock every frame. timeupdate only fires about four times a second, which made the
+            // ring move in steps, and it depends on a duration that is not a number until the file's header is read.
+            startTicker() {
+                const state = this.audioState;
+
+                cancelAnimationFrame(state.raf);
+
+                const tick = () => {
+                    const audio = state.element;
+
+                    if (!audio || !state.isPlaying) {
+                        return;
+                    }
+
+                    const duration = audio.duration;
+
+                    if (Number.isFinite(duration) && duration > 0) {
+                        state.progress = Math.min(1, audio.currentTime / duration);
+                    } else {
+                        // A clip that arrives as a stream with no length (behind a proxy, or from the CDN directly)
+                        // reports Infinity until it has fully downloaded. Preview clips are about ten seconds, so
+                        // that is the best guess meanwhile; it is held just short of full so the ring never claims
+                        // to be done before the clip says so. Once the real length is known the line above takes over.
+                        state.progress = Math.min(0.99, audio.currentTime / PREVIEW_GUESS_SECONDS);
+                    }
+
+                    state.raf = requestAnimationFrame(tick);
+                };
+
+                state.raf = requestAnimationFrame(tick);
             },
             playAudio() {
                 const state = this.audioState;
                 const setId = this.set.set_id;
 
                 if (state.element) {
+                    this.detach(state.element);
                     state.element.pause();
-                    state.element.src = "";
                 }
 
-                const audio = new Audio();
-                audio.src = "https://b.ppy.sh/preview/" + setId + ".mp3";
+                cancelAnimationFrame(state.raf);
+
+                const audio = previewAudio(setId);
+
+                try {
+                    audio.currentTime = 0;
+                } catch (e) {
+                    // not seekable until the header is in: it starts at 0 anyway
+                }
+
                 state.element = audio;
                 state.activeSetId = setId;
                 state.isLoading = true;
                 state.isPlaying = false;
                 state.progress = 0;
 
-                audio.addEventListener("playing", () => {
+                // "this audio is still the current one" - every handler checks it, because events and promises
+                // of a clip that was switched away from arrive late and must not touch the new clip's state.
+                const current = () => state.element === audio;
+
+                audio.onplaying = () => {
+                    if (!current()) return;
                     state.isLoading = false;
                     state.isPlaying = true;
-                });
+                    this.startTicker();
+                };
 
-                audio.addEventListener("timeupdate", () => {
-                    if (audio.duration) {
-                        state.progress = Math.min(1, audio.currentTime / audio.duration);
-                    }
-                });
+                audio.onwaiting = () => {
+                    if (!current()) return;
+                    // stalled for data: show the spinner again rather than a frozen ring
+                    state.isLoading = true;
+                };
 
-                audio.addEventListener("ended", () => {
+                audio.onended = () => {
+                    if (!current()) return;
+                    cancelAnimationFrame(state.raf);
                     state.isPlaying = false;
+                    state.isLoading = false;
                     state.progress = 0;
                     state.activeSetId = null;
-                });
+                    state.element = null;
+                };
 
-                audio.addEventListener("error", () => {
+                audio.onerror = () => {
+                    if (!current()) return;
+                    // forget the broken element so the next press asks again
+                    window.__konekoAudioCache.delete(setId);
+                    cancelAnimationFrame(state.raf);
                     state.isLoading = false;
                     state.isPlaying = false;
                     state.progress = 0;
                     state.activeSetId = null;
-                });
+                    state.element = null;
+                };
 
-                audio.play().catch(() => {
+                audio.play().catch(error => {
+                    // Switching to another clip, or pressing pause, interrupts a play() that has not finished yet:
+                    // that is an AbortError and not a failure, and by then the state belongs to something else.
+                    if (!current() || (error && error.name === "AbortError")) return;
+                    cancelAnimationFrame(state.raf);
                     state.isLoading = false;
                     state.isPlaying = false;
+                    state.progress = 0;
                     state.activeSetId = null;
+                    state.element = null;
+                });
+            },
+            resumeAudio() {
+                const state = this.audioState;
+                const audio = state.element;
+
+                if (!audio) {
+                    this.playAudio();
+                    return;
+                }
+
+                state.isLoading = audio.readyState < 3;
+
+                audio.play().catch(error => {
+                    if (state.element !== audio || (error && error.name === "AbortError")) return;
+                    state.isLoading = false;
+                    state.isPlaying = false;
                 });
             },
             pauseAudio() {
                 const state = this.audioState;
+
+                cancelAnimationFrame(state.raf);
+
                 if (state.element) {
                     state.element.pause();
                 }
+
                 state.isPlaying = false;
+                state.isLoading = false;
             },
             stopAudio() {
                 const state = this.audioState;
+
+                cancelAnimationFrame(state.raf);
+
                 if (state.element) {
+                    this.detach(state.element);
                     state.element.pause();
-                    state.element.src = "";
                     state.element = null;
                 }
+
                 state.activeSetId = null;
                 state.isPlaying = false;
                 state.isLoading = false;
