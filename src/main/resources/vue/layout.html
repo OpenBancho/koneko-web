@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>koneko</title>
+    <meta name="koneko-view" content="@routeName">
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css"
         integrity="sha384-aQuvIWWIbpu/mSqULLDiUveyYiPoJzPKAWjUmGJ+Elm+N/LJhzfZqsutsfw870JS"
@@ -45,7 +46,55 @@
 
     const koneko = window.__koneko || { site: {}, user: null, domain: "" };
 
-    const app = Vue.createApp({});
+    // A browser reload (F5) is not a visit: it asks for fresh scores. The stats of a profile and the other page data
+    // stay cached, but whatever holds scores is dropped here, before any page gets to read it. Moving between pages
+    // (links, back/forward) is not a reload and keeps every cache.
+    (function dropScoresOnReload() {
+        try {
+            const entries = performance.getEntriesByType("navigation");
+
+            if (!entries.length || entries[0].type !== "reload") return;
+
+            const prefix = "koneko:fast:";
+            const scoreParts = ["best", "recent", "firstPlaces", "mostPlayed", "topScores"];
+
+            for (let i = window.localStorage.length - 1; i >= 0; i--) {
+                const name = window.localStorage.key(i);
+
+                if (!name || name.indexOf(prefix) !== 0) continue;
+
+                const key = name.substring(prefix.length);
+
+                // A single score page is nothing but a score.
+                if (key.indexOf("score:") === 0) {
+                    window.localStorage.removeItem(name);
+                    continue;
+                }
+
+                if (key !== "home" && key.indexOf("profile:") !== 0) continue;
+
+                const entry = JSON.parse(window.localStorage.getItem(name));
+
+                if (!entry || !entry.body) continue;
+
+                scoreParts.forEach(part => { delete entry.body[part]; });
+                window.localStorage.setItem(name, JSON.stringify(entry));
+            }
+
+            console.info("[turbo] reload: cached scores dropped, stats kept");
+        } catch (e) {
+            // storage is optional
+        }
+    })();
+
+    // The root owns which page component is on screen, so turbo.js can swap it without a page load.
+    const app = Vue.createApp({
+        data() {
+            const meta = document.querySelector('meta[name="koneko-view"]');
+
+            return { view: meta ? meta.content : "", navKey: 0 };
+        }
+    });
 
     app.config.globalProperties.$koneko = koneko;
 
@@ -59,6 +108,17 @@
                 const settings = koneko.fastload || {};
 
                 if (!settings.enabled) return null;
+
+                // Pages visited in this tab are served from memory: no storage read, no JSON parse.
+                const hot = window.__konekoFast && window.__konekoFast.get(key);
+
+                if (hot) {
+                    const ttl = (settings.clientTtl || 0) * 1000;
+
+                    if (!ttl || Date.now() - hot.storedAt <= ttl) return hot.body;
+
+                    window.__konekoFast.delete(key);
+                }
 
                 try {
                     const raw = window.localStorage.getItem(this.fastKey(key));
@@ -83,6 +143,10 @@
                 const settings = koneko.fastload || {};
 
                 if (!settings.enabled || !body) return;
+
+                if (!window.__konekoFast) window.__konekoFast = new Map();
+
+                window.__konekoFast.set(key, { storedAt: Date.now(), body: body });
 
                 try {
                     window.localStorage.setItem(this.fastKey(key), JSON.stringify({
@@ -248,8 +312,8 @@
             coverUrl(setId, size) {
                 if (!setId) return "";
 
-                return "https://assets.ppy.sh/beatmaps/" + setId + "/covers/"
-                    + (size || "card") + "@2x.jpg";
+                // Thumbnails are cut down and re-encoded as WebP by this server (ImageRoutes) and cached for good.
+                return "/img/cover/" + encodeURIComponent(setId) + "/" + (size || "card") + ".webp";
             },
 
             flagClass(code) {
@@ -440,8 +504,10 @@
 @componentRegistration
 
 <script>
-    app.mount("#koneko-app");
+    window.__konekoRoot = app.mount("#koneko-app");
 </script>
+
+<script src="/js/turbo.js?v=turbo-1"></script>
 
 @pluginBody
 

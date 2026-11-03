@@ -677,7 +677,20 @@ app.component("profile-view", {
                 first: (body.firstPlaces && body.firstPlaces.count) || this.firstPlaces.length
             };
 
+            this.mostPlayed = (body.mostPlayed && body.mostPlayed.results) || [];
+
             this.settled();
+
+            // A stored copy can be missing sections - after a reload the scores are dropped on purpose, and an old
+            // copy may predate a section. Those cards keep their loader until the fresh answer lands, instead of
+            // claiming "no scores yet".
+            const parts = { best: "best", recent: "recent", first: "firstPlaces", mostPlayed: "mostPlayed",
+                playcounts: "playcounts", rankHistory: "rankHistory" };
+
+            Object.keys(parts).forEach(name => {
+                if (body[parts[name]] === undefined) this.pending[name] = true;
+            });
+
             this.setTitle(this.info.name);
         },
         /** Nothing is being waited for any more: drop every loader. */

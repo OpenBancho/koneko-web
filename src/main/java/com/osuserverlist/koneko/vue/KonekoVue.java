@@ -132,10 +132,23 @@ public final class KonekoVue {
         return ctx -> render(ctx, name, status);
     }
 
+    /** The request header turbo.js sets: it wants the page as data to swap in, not as a whole document. */
+    public static final String TURBO_HEADER = "X-Koneko-Turbo";
+
     private static void render(Context ctx, String component, int status) throws IOException {
+        // The same address answers a browser with a page and turbo.js with JSON, so a cache must tell them apart.
+        ctx.header("Vary", TURBO_HEADER);
+
+        if ("1".equals(ctx.header(TURBO_HEADER))) {
+            renderTurbo(ctx, component, status);
+            return;
+        }
+
         String componentsContent = components(ctx, component);
         String html = replace(layout(), COMPONENT_MARKER, componentsContent + fromPlugin(pluginComponents));
-        html = replace(html, ROUTE_MARKER, "<" + component + "></" + component + ">");
+        // The root component decides which page is on screen, which is what lets turbo.js change it without a load.
+        html = replace(html, ROUTE_MARKER, "<component :is=\"view\" :key=\"navKey\"></component>");
+        html = html.replace("@routeName", component);
         html = replace(html, PLUGIN_HEAD_MARKER, fromPlugin(pluginHead));
         html = replace(html, PLUGIN_BODY_MARKER, fromPlugin(pluginBodyEnd));
 
@@ -151,6 +164,41 @@ public final class KonekoVue {
         ctx.status(status);
         ctx.contentType("text/html; charset=utf-8");
         ctx.result(html);
+    }
+
+    /**
+     * The page as data, for turbo.js: only the components the shell does not already have. The shared components, the
+     * plugins' components and the theme all arrived with the first page, so what travels is the one view (and, for
+     * staff, nothing more than a page load would have carried).
+     */
+    private static void renderTurbo(Context ctx, String component, int status) throws IOException {
+        String html = turboComponents(ctx, component);
+        html = HTML_COMMENT.matcher(html).replaceAll("");
+        html = MULTI_NEWLINES.matcher(html).replaceAll("\n\n");
+
+        BiConsumer<Context, String> hook = renderHook;
+
+        if (hook != null) {
+            hook.accept(ctx, component);
+        }
+
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("view", component);
+        body.put("status", status);
+        body.put("html", html);
+
+        // Depends on the session (staff get more components), so no shared cache may keep it.
+        ctx.header("Cache-Control", "private, no-store");
+        ctx.status(status);
+        ctx.json(body);
+    }
+
+    /** {@link #components} without the shared part that every page already carries. */
+    private static String turboComponents(Context ctx, String component) throws IOException {
+        String all = components(ctx, component);
+        String shared = publicSharedComponents();
+
+        return all.startsWith(shared) ? all.substring(shared.length()) : all;
     }
 
     /** A plugin contribution, or an empty string when there is none. */

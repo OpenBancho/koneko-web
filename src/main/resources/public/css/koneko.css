@@ -6092,3 +6092,31 @@ body {
     overflow-wrap: anywhere;
     line-height: 1.5;
 }
+
+/* --- turbo navigation ------------------------------------------------------ */
+
+.turbo-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0;
+    z-index: 9999;
+    background: var(--accent, #ff4d8d);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.turbo-progress-on {
+    opacity: 1;
+    width: 85%;
+    transition: width 8s cubic-bezier(0.1, 0.8, 0.2, 1), opacity 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .turbo-progress-on {
+        transition: opacity 0.2s ease;
+        width: 100%;
+    }
+}

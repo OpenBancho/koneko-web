@@ -110,6 +110,7 @@ public final class App {
             AuthRoutes.register(config);
             DataRoutes.register(config);
             com.osuserverlist.koneko.routes.LazerRoutes.register(config);
+            com.osuserverlist.koneko.routes.ImageRoutes.register(config);
 
             // The Markdown documents behind the static text pages.
             DocsRoutes.register(config);

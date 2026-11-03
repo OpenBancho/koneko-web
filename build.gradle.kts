@@ -51,6 +51,9 @@ dependencies {
 
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
 
+    // WebP encoder for the cover thumbnails (ImageIO plugin with bundled native libraries)
+    implementation("com.github.gotson:webp-imageio:0.2.2")
+
     // The .jar plugin host. Plugins are loaded from the plugins directory at
     // boot, so nothing about them is known at build time.
     implementation("org.pf4j:pf4j:$pf4jVersion")
