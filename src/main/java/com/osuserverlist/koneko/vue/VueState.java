@@ -109,6 +109,7 @@ public final class VueState {
         home.put("newPlayersSize", config.getHome().getNewPlayersSize());
         home.put("showTopScores", config.getHome().isShowTopScores());
         home.put("topScoresSize", config.getHome().getTopScoresSize());
+        home.put("showBestReplay", config.getHome().isShowBestReplay());
         home.put("showConnectGuide", config.getHome().isShowConnectGuide());
         home.put("heroImage", config.getHome().getHeroImage());
         home.put("logoImage", config.getHome().getLogoImage());

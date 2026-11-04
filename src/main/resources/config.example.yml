@@ -47,6 +47,10 @@ home:
   show_top_scores: true
   top_scores_size: 5
 
+  # Show the looping replay video of the best osu!standard score on the server.
+  # bancho.jar renders it; this site keeps a copy of the video on disk.
+  show_best_replay: true
+
   # Show the "how to connect" block with the -devserver instructions.
   show_connect_guide: true
 

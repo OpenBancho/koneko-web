@@ -101,6 +101,55 @@
             </a>
         </section>
 
+        <!-- The best osu!standard score of the server, as a looping video rendered by bancho.jar.
+             The bar on top names the play; the clip itself ends on the results screen. While
+             bancho.jar is still drawing it the bar is shown over a placeholder, and without any
+             score at all the panel is not shown. -->
+        <section class="card best-replay" v-if="home.showBestReplay && bestReplay && bestReplay.score">
+            <div class="best-replay-bar">
+                <span class="best-replay-label">Best play</span>
+
+                <a class="best-replay-player" v-if="bestReplay.player"
+                   :href="'/u/' + bestReplay.player.id">{{ bestReplay.player.name }}</a>
+
+                <a class="best-replay-map" v-if="bestReplay.beatmap"
+                   :href="'/beatmapsets/' + bestReplay.beatmap.set_id">
+                    {{ bestReplay.beatmap.artist }} - {{ bestReplay.beatmap.title }}
+                </a>
+
+                <span class="best-replay-chip" v-if="bestReplay.beatmap" title="Difficulty">
+                    {{ bestReplay.beatmap.version }}
+                </span>
+                <span class="best-replay-chip" v-if="bestReplay.beatmap" title="Star rating">
+                    &#9733; {{ fmtDecimal(bestReplay.beatmap.diff, 2) }}
+                </span>
+                <span class="best-replay-chip" v-if="replayMods.length" title="Mods">
+                    {{ replayMods.join(", ") }}
+                </span>
+
+                <a class="best-replay-pp" :href="'/scores/' + bestReplay.score.id">
+                    {{ fmtDecimal(bestReplay.score.pp, 0) }}<span class="unit">pp</span>
+                </a>
+            </div>
+
+            <div class="best-replay-stage">
+                <video v-if="bestReplay.status === 'ready' && bestReplay.video_url"
+                       ref="replayVideo" class="best-replay-video"
+                       :src="bestReplay.video_url" autoplay loop muted playsinline preload="auto"></video>
+
+                <div class="best-replay-pending" v-else>
+                    <span class="best-replay-spinner" aria-hidden="true"></span>
+                    Rendering the replay...
+                </div>
+
+                <button type="button" class="best-replay-sound" v-if="bestReplay.status === 'ready'"
+                        @click="toggleReplaySound"
+                        :aria-label="replayMuted ? 'Turn the sound on' : 'Turn the sound off'">
+                    {{ replayMuted ? "Sound off" : "Sound on" }}
+                </button>
+            </div>
+        </section>
+
         <!-- The two front page panels: who just joined, and the best plays on
              the server. Either can be turned off in config.yml, and each one
              greys out on its own when the API cannot answer, so a missing list
@@ -186,7 +235,10 @@
             loading: true,
             stats: null,
             newPlayers: [],
-            topScores: []
+            topScores: [],
+            bestReplay: null,
+            replayMuted: true,
+            replayTimer: null
         }),
         computed: {
             site() {
@@ -211,6 +263,12 @@
 
                 return name.split(/\s+/).slice(0, 2)
                     .map(word => word.charAt(0).toUpperCase()).join("");
+            },
+            // The score lists tag every stable score "CL"; on the bar only real mods are worth a chip.
+            replayMods() {
+                return this.bestReplay && this.bestReplay.score
+                    ? this.scoreMods(this.bestReplay.score).filter(mod => mod !== "CL")
+                    : [];
             },
             isHeroVideo() {
                 const src = this.home.heroVideo || this.home.heroImage;
@@ -265,14 +323,53 @@
                     scores: pick("scores", "totalScores")
                 };
             },
+            toggleReplaySound() {
+                const video = this.$refs.replayVideo;
+
+                if (!video) return;
+
+                this.replayMuted = !this.replayMuted;
+                video.muted = this.replayMuted;
+
+                // A play started with the sound off may be paused by the browser; the click allows it.
+                if (!this.replayMuted) video.play().catch(() => {});
+            },
+            // The clip is rendered on the server the first time somebody asks, so a "rendering"
+            // answer is asked again every few seconds until it is ready. A page that is left
+            // stops asking.
+            async loadBestReplay() {
+                try {
+                    const response = await fetch("/best-replay", { headers: { Accept: "application/json" } });
+
+                    if (!response.ok) throw new Error("status " + response.status);
+
+                    this.bestReplay = await response.json();
+                } catch (e) {
+                    // the panel simply stays as it is; the next round asks again
+                }
+
+                const status = this.bestReplay && this.bestReplay.status;
+
+                if (status === "rendering") {
+                    this.replayTimer = setTimeout(() => this.loadBestReplay(), 5000);
+                }
+            },
             apply(body) {
                 this.stats = body.stats || null;
                 this.newPlayers = body.newPlayers || [];
                 this.topScores = body.topScores || [];
             }
         },
+        beforeUnmount() {
+            clearTimeout(this.replayTimer);
+        },
         async created() {
             this.setTitle(null);
+
+            if (this.home.showBestReplay) {
+                // not awaited: the video must never hold the rest of the page back
+                this.loadBestReplay();
+            }
 
             // FastLoad: paint the numbers of the last visit right away, so
             // the page is never empty while the API answer is on its way.

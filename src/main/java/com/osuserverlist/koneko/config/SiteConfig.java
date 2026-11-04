@@ -118,6 +118,10 @@ public final class SiteConfig {
         @JsonProperty("top_scores_size")
         private int topScoresSize = 5;
 
+        /** The looping replay video of the best osu!standard score on the server, rendered by bancho.jar. */
+        @JsonProperty("show_best_replay")
+        private boolean showBestReplay = true;
+
         @JsonProperty("show_connect_guide")
         private boolean showConnectGuide = true;
 
