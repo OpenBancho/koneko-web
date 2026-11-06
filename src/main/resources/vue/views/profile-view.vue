@@ -94,6 +94,15 @@
                             @click="actOnFriend">{{ friendshipLabel }}</button>
                         <span class="profile-actions-error" v-if="friendship.error">{{ friendship.error }}</span>
                     </div>
+
+                    <!-- Only while the player is in gameplay on stable or lazer: the play is drawn live
+                         on the spectate page from their own frames. -->
+                    <div class="profile-actions" v-if="live && live.playing && !isSelf">
+                        <a class="button button-small profile-watch" :href="'/spectate/' + info.id"
+                            :title="'Watch ' + info.name + ' play right now (' + (live.source === 'lazer' ? 'lazer' : 'stable') + ')'">
+                            <span class="spectate-dot"></span>Spectate
+                        </a>
+                    </div>
                 </div>
 
                 <div class="profile-body">
@@ -435,6 +444,8 @@ app.component("profile-view", {
         friendship: { loaded: false, status: "none", blocked: false, blockedBy: false, busy: false, error: "" },
         // Hovering a "Following"/"Mutual" button swaps it to a red "Unfollow".
         friendHover: false,
+        // Whether the player is in gameplay right now, on either server; asked again every so often.
+        live: null,
         // What lazer.jar adds to a profile. lazer.jar is a server of its own and may not be linked at all, in which
         // case every field stays empty and none of its cards render.
         lazer: { page: null, counts: null, pinned: [], activity: [] },
@@ -832,6 +843,7 @@ app.component("profile-view", {
                 this.setTitle(this.info.name);
                 this.settle("header", "player", player);
                 this.loadLazer(run);
+                this.watchLive();
             } catch (e) {
                 if (run !== this.generation) return;
 
@@ -1065,7 +1077,32 @@ app.component("profile-view", {
         reload() {
             this.error = "";
             this.load();
+        },
+        /** Asks whether the player is playing now, and keeps asking while the profile is open. */
+        watchLive() {
+            if (this.liveTimer) clearInterval(this.liveTimer);
+
+            const ask = async () => {
+                const id = this.info && this.info.id;
+
+                if (!id || document.hidden) return;
+
+                try {
+                    const response = await fetch("/spectate/status/" + encodeURIComponent(id),
+                        { headers: { "Accept": "application/json" } });
+
+                    if (response.ok && this.info && this.info.id === id) this.live = await response.json();
+                } catch (e) {
+                    // no button is the right answer to a failed ask
+                }
+            };
+
+            ask();
+            this.liveTimer = setInterval(ask, 20000);
         }
+    },
+    beforeUnmount() {
+        if (this.liveTimer) clearInterval(this.liveTimer);
     },
     created() {
         this.identifier = decodeURIComponent(window.location.pathname.split("/").pop());

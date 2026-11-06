@@ -28,6 +28,7 @@
     var ALLOWED = [
         /^\/$/,
         /^\/u\/[^/]+\/?$/,
+        /^\/spectate\/\d+\/?$/,
         /^\/me\/?$/,
         /^\/leaderboard\/?$/,
         /^\/beatmaps\/?$/,

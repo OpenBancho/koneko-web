@@ -113,6 +113,7 @@ public final class App {
             com.osuserverlist.koneko.routes.ImageRoutes.register(config);
             com.osuserverlist.koneko.routes.AudioRoutes.register(config);
             com.osuserverlist.koneko.routes.BestReplayRoutes.register(config);
+            com.osuserverlist.koneko.routes.SpectateRoutes.register(config);
 
             // The Markdown documents behind the static text pages.
             DocsRoutes.register(config);

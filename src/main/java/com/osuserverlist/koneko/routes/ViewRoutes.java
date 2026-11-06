@@ -47,6 +47,8 @@ public final class ViewRoutes {
         config.routes.get(Verification.PATH, ctx -> verify(ctx, verifyPage));
 
         config.routes.get("/u/{identifier}", profilePage());
+        // Watching a player live; the same visibility rule as the profile it is opened from.
+        config.routes.get("/spectate/{identifier}", spectatePage());
         config.routes.get("/leaderboard", page("leaderboard-view"));
         config.routes.get("/connect", page("connect-view"));
         config.routes.get("/how-to-connect", ctx -> ctx.redirect("/connect"));
@@ -200,6 +202,27 @@ public final class ViewRoutes {
      * API is having a bad moment, and a page that would have rendered is not turned into a
      * not-found because of it: the profile is served and its own error handling takes over.
      */
+    /** The live spectator page of one player, by id. Hidden exactly when the profile is. */
+    private static Handler spectatePage() {
+        Handler page = KonekoVue.component("spectate-view");
+        Handler missing = KonekoVue.component("not-found-view", 404);
+
+        return ctx -> {
+            if (Verification.blocksPage(ctx)) {
+                return;
+            }
+
+            String id = ctx.pathParam("identifier");
+
+            if (id.matches("[0-9]{1,10}") && visibleProfile(ctx, id)) {
+                page.handle(ctx);
+                return;
+            }
+
+            missing.handle(ctx);
+        };
+    }
+
     private static boolean visibleProfile(Context ctx, String identifier) {
         if (identifier == null || identifier.isBlank()) {
             return false;
