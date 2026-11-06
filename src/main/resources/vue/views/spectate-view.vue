@@ -130,6 +130,14 @@
                 }
 
                 if (!this.live.started) {
+                    // the play does not begin until everything it needs is in
+                    if (this.live.ready === false) {
+                        const parts = (this.live.pending || []).join(", ");
+
+                        return { icon: "fa-circle-notch fa-spin", text: "Loading the map...",
+                            hint: parts ? "Waiting for: " + parts : "" };
+                    }
+
                     return { icon: "fa-circle-notch fa-spin", text: "Waiting for the first frames..." };
                 }
 
@@ -143,7 +151,7 @@
                 if (!window.__konekoSpectateLoading) {
                     window.__konekoSpectateLoading = new Promise((resolve, reject) => {
                         const tag = document.createElement("script");
-                        tag.src = "/js/spectate-player.js?v=spectate-1";
+                        tag.src = "/js/spectate-player.js?v=spectate-3";
                         tag.onload = resolve;
                         tag.onerror = reject;
                         document.head.appendChild(tag);
@@ -212,10 +220,13 @@
                 this.mods = opts.mods;
                 this.player.reset();
                 this.player.setOptions(opts);
+                // nothing is drawn until the map, the background and the song are all settled
+                this.player.beginLoad();
 
                 const id = Number(state.beatmap_id) || 0;
 
                 if (!id) {
+                    this.player.failMap();
                     this.mapError = "This map is not on the server, so it cannot be drawn.";
                     return;
                 }
@@ -236,7 +247,10 @@
                     this.mapInfo = { title: map.title, artist: map.artist, version: map.version, creator: map.creator };
                     this.setTitle("Watching " + (this.playerName || "a player"));
                 } catch (e) {
-                    if (this.mapKey === key) this.mapError = "The map could not be loaded.";
+                    if (this.mapKey === key) {
+                        if (this.player) this.player.failMap();
+                        this.mapError = "The map could not be loaded.";
+                    }
                 }
             },
             onFrames(bundle) {
