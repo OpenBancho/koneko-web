@@ -603,6 +603,16 @@ public final class SpectateRoutes {
 
     /** A file from the cache, with byte ranges: the page seeks the song to the player's position. */
     private static void serve(Context ctx, Path path, String type) throws IOException {
+        // The .osu is text, so Jetty gzips it for browsers that accept it. A Content-Length we set by hand is the size
+        // of the plain file and makes that fail with a 500 ("content-length N != 0 written"): send the bytes and let the
+        // container size the response. It is small (MAX_OSU) and is never seeked, so no ranges are needed either.
+        if (type.startsWith("text/")) {
+            ctx.header("Cache-Control", "public, max-age=86400");
+            ctx.contentType(type);
+            ctx.result(Files.readAllBytes(path));
+            return;
+        }
+
         long size = Files.size(path);
         long start = 0;
         long end = size - 1;
